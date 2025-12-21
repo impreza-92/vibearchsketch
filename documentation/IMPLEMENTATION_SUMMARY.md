@@ -12,6 +12,9 @@
 - ✅ Drawing tool fully functional with proper event coordination
 - ✅ Changed to one-wall-at-a-time drawing (no auto-chaining)
 - ✅ Added smart point reuse - automatically snaps to existing points within 10px
+- ✅ Implemented millimeter-based measurement system
+- ✅ Wall length labels displayed in millimeters (whole numbers)
+- ✅ Configurable scale (pixels per millimeter)
 - ✅ Verified all 4 vertex scenarios work correctly without creating duplicates:
   1. Both vertices new → Creates 2 points + 1 wall
   2. Start exists, end new → Reuses start, creates end + wall
@@ -46,7 +49,7 @@ A fully functional floorplan drawing application with interactive wall drawing, 
    - One wall at a time (no auto-chaining)
    - Grid overlay with configurable spacing
    - Snap-to-grid functionality
-   - Comprehensive measurement system with real-world units
+   - Millimeter-based measurement system with wall length labels
 
 3. **User Interface**
    - Toolbar with drawing tools (Draw, Select, Pan, Erase)

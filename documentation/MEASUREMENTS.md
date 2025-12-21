@@ -2,7 +2,320 @@
 
 ## Overview
 
-The floorplan app includes a comprehensive measurement system that converts canvas pixels to real-world units, supporting both metric and imperial measurement systems.
+The floorplan app includes a measurement system that converts canvas pixels to millimeters, providing accurate real-world dimensions for architectural drawings.
+
+## Key Concepts
+
+### Scale Factor (Pixels Per Millimeter)
+
+The core of the measurement system is the `pixelsPerMm` setting, which defines how many screen pixels equal one millimeter.
+
+**Example:**
+- `pixelsPerMm = 0.1` means 10 pixels on screen = 100mm (10cm)
+- A wall that is 50 pixels long = 500mm
+- A wall that is 100 pixels long = 1000mm (1 meter)
+
+**Default:** 0.1 pixels per millimeter (10 pixels = 100mm = 10cm)
+
+### Unit: Millimeters
+
+All measurements are displayed in **millimeters (mm)**:
+- Direct, whole-number measurements
+- No decimal places needed
+- Standard unit for architectural and engineering drawings
+- Easy conversion: 1000mm = 1 meter, 100mm = 10cm
+
+## Features
+
+### 1. Wall Length Display
+
+When enabled, measurement labels appear at the midpoint of each wall:
+
+- **Visual Design:**
+  - Orange text for visibility
+  - Semi-transparent black background
+  - Rotated to align with wall direction
+  - Bold font for readability
+  - Format: "500 mm"
+
+- **Auto-Update:**
+  - Updates automatically when walls are modified
+  - Recalculates when scale changes
+  - Can be toggled on/off
+
+### 2. Scale Independence
+
+Measurements are **zoom-independent** (when zoom/pan is implemented):
+
+- Real-world distances remain constant
+- Only the visual representation changes with zoom
+- Scale factor accounts for zoom level
+- Consistent measurements regardless of view
+
+### 3. Grid Integration
+
+The measurement system integrates with the grid:
+
+- Default scale: 10 pixels = 100mm (10cm grid squares)
+- Grid provides visual reference for scale
+- Snap-to-grid ensures measurements align to scale
+- Easy to estimate distances using grid
+
+## Usage
+
+### Configuring Measurements
+
+**In the Toolbar:**
+
+1. **Show Lengths** checkbox - Toggle measurement labels on/off
+2. **Scale** input - Set pixels per millimeter (0.01-10)
+   - Lower values = larger real-world dimensions
+   - Higher values = smaller real-world dimensions
+
+### Reading Measurements
+
+- Wall lengths appear in **orange text** at wall midpoints
+- Text rotates to align with wall angle
+- Format: `500 mm` (always whole millimeters)
+- All measurements in millimeters for consistency
+
+### Best Practices
+
+1. **Set Scale First:**
+   - Determine your real-world scale before drawing
+   - Example: If 1 grid square = 10cm, use `pixelsPerMm = 0.1`
+
+2. **Use Grid for Reference:**
+   - Enable snap-to-grid for consistent measurements
+   - Grid squares provide visual scale reference
+
+3. **Common Scales:**
+   - `0.1 px/mm`: 10 pixels = 100mm (10cm squares)
+   - `0.2 px/mm`: 10 pixels = 50mm (5cm squares)
+   - `0.05 px/mm`: 10 pixels = 200mm (20cm squares)
+
+4. **Architectural Standards:**
+   - Millimeters are standard in architectural drawings
+   - No precision issues with whole numbers
+   - Easy to convert (1000mm = 1m)
+
+## API Reference
+
+### Utility Functions
+
+```typescript
+// Convert pixels to millimeters
+pixelsToMm(pixels: number, pixelsPerMm: number): number
+
+// Convert millimeters to pixels
+mmToPixels(mm: number, pixelsPerMm: number): number
+
+// Calculate real distance between two points
+calculateRealDistance(
+  point1: Point,
+  point2: Point,
+  pixelsPerMm: number
+): number
+
+// Format measurement for display
+formatMeasurement(valueInMm: number): string
+
+// Get wall length with formatting
+formatWallLength(
+  startPoint: Point,
+  endPoint: Point,
+  settings: MeasurementSettings
+): string
+```
+
+### State Actions
+
+```typescript
+// Toggle measurement display
+dispatch({ type: 'SET_SHOW_MEASUREMENTS', show: boolean })
+
+// Set scale factor
+dispatch({ type: 'SET_PIXELS_PER_MM', value: number })
+```
+
+## Technical Implementation
+
+### Coordinate System
+
+- Canvas uses pixel coordinates (x, y)
+- Origin (0, 0) at top-left
+- Positive x → right, positive y → down
+- Distance calculated using Euclidean formula: √((x₂-x₁)² + (y₂-y₁)²)
+
+### Conversion Formula
+
+```
+Real Distance (mm) = Pixel Distance / Pixels Per Millimeter
+
+Example:
+- Pixel distance: 50 pixels
+- Pixels per mm: 0.1 px/mm
+- Real distance: 50 / 0.1 = 500 millimeters
+```
+
+### Rendering
+
+Measurement labels are rendered using Pixi.js Text objects:
+
+1. Calculate wall midpoint: `((x₁+x₂)/2, (y₁+y₂)/2)`
+2. Calculate wall angle: `atan2(y₂-y₁, x₂-x₁)`
+3. Create text with formatted measurement
+4. Rotate text to align with wall
+5. Add semi-transparent background for readability
+6. Add to measurement container layer
+
+### Performance
+
+- Measurements recalculated only when walls or settings change
+- Text objects destroyed and recreated on updates
+- Efficient Map/Set data structures for lookups
+- No impact on drawing performance
+
+## Future Enhancements
+
+### Planned Features
+
+1. **Area Calculation:**
+   - Calculate room areas automatically
+   - Display in mm² or m²
+   - Support for irregular shapes
+
+2. **Dimension Lines:**
+   - Traditional architectural dimension lines
+   - Extension lines and arrows
+   - Customizable styles
+
+3. **Measurement Tool:**
+   - Interactive tool to measure arbitrary distances
+   - Temporary measurement lines
+   - Click-and-drag measurement
+
+4. **Scale Ruler:**
+   - Visual scale bar on canvas
+   - Updates with zoom level
+   - Shows current scale ratio
+
+5. **Export with Measurements:**
+   - Include measurements in SVG export
+   - PDF output with dimensioned drawings
+   - CAD format support (DXF)
+
+### Configuration Persistence
+
+Future versions will save measurement settings:
+
+- Store in localStorage
+- Include in saved floorplan files
+- User preferences across sessions
+- Project-specific scale settings
+
+## Examples
+
+### Example 1: Small Room (10cm Grid)
+
+**Setup:**
+- Grid size: 10px
+- Pixels per mm: 0.1
+- Grid square = 100mm (10cm)
+
+**Drawing:**
+- 4m × 3m room = 40 squares × 30 squares
+- 400px × 300px on screen
+- Walls show: "4000 mm", "3000 mm"
+
+### Example 2: Detailed Plan (5cm Grid)
+
+**Setup:**
+- Grid size: 10px
+- Pixels per mm: 0.2
+- Grid square = 50mm (5cm)
+
+**Drawing:**
+- 2.5m × 1.5m closet = 50 squares × 30 squares
+- 500px × 300px on screen
+- Walls show: "2500 mm", "1500 mm"
+
+### Example 3: Large Building (20cm Grid)
+
+**Setup:**
+- Grid size: 10px
+- Pixels per mm: 0.05
+- Grid square = 200mm (20cm)
+
+**Drawing:**
+- 10m × 8m space = 50 squares × 40 squares
+- 500px × 400px on screen
+- Walls show: "10000 mm", "8000 mm"
+
+## Troubleshooting
+
+### Issue: Measurements seem wrong
+
+**Solution:**
+1. Check `pixelsPerMm` setting
+2. Verify grid size matches your intended scale
+3. Check if snap-to-grid is enabled
+4. Remember: smaller pixelsPerMm = larger real-world dimensions
+
+### Issue: Text is too small/large
+
+**Solution:**
+1. Adjust font size in code (default: 12px)
+2. Use zoom feature (when implemented)
+3. Font size scales with zoom
+
+### Issue: Labels overlap
+
+**Solution:**
+1. Draw longer walls for more space
+2. Toggle measurements off for cleaner view
+3. Use zoom to see details
+
+### Issue: Can't read rotated text
+
+**Solution:**
+1. Measurements rotate with walls
+2. Vertical/diagonal walls may be harder to read
+3. Future update will add smart text rotation
+4. Use info panel for exact measurements
+
+## Mathematical Background
+
+### Distance Formula
+
+The distance between two points (x₁, y₁) and (x₂, y₂):
+
+```
+d = √((x₂ - x₁)² + (y₂ - y₁)²)
+```
+
+This gives us pixel distance, which we convert using:
+
+```
+real_distance_mm = pixel_distance / pixels_per_mm
+```
+
+### Example Calculation
+
+For a wall from (0, 0) to (50, 0):
+- Pixel distance: 50 pixels
+- If pixelsPerMm = 0.1:
+- Real distance: 50 / 0.1 = 500mm
+
+### Common Conversions
+
+- 100mm = 10cm
+- 1000mm = 1m = 100cm
+- 10000mm = 10m
+
+## Conclusion
+
+The measurement system provides accurate, millimeter-based distance calculations for architectural floorplans. The simplified approach eliminates unit conversion complexity while maintaining professional accuracy suitable for architectural and engineering applications.
 
 ## Key Concepts
 

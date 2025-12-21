@@ -16,10 +16,8 @@ const initialState: FloorplanState = {
   gridSize: 10,
   snapToGrid: true,
   measurement: {
-    pixelsPerUnit: 10, // 10 pixels = 1 unit (default matches grid)
-    unitSystem: 'metric', // meters by default
+    pixelsPerMm: 0.1, // 0.1 pixels = 1mm, so 10px = 100mm (10cm)
     showMeasurements: true, // Show wall lengths by default
-    precision: 2, // 2 decimal places
   },
   history: [],
   historyIndex: -1,
@@ -135,22 +133,12 @@ const floorplanReducer = (
       };
     }
 
-    case 'SET_PIXELS_PER_UNIT': {
+    case 'SET_PIXELS_PER_MM': {
       return {
         ...state,
         measurement: {
           ...state.measurement,
-          pixelsPerUnit: action.value,
-        },
-      };
-    }
-
-    case 'SET_UNIT_SYSTEM': {
-      return {
-        ...state,
-        measurement: {
-          ...state.measurement,
-          unitSystem: action.system,
+          pixelsPerMm: action.value,
         },
       };
     }
@@ -161,16 +149,6 @@ const floorplanReducer = (
         measurement: {
           ...state.measurement,
           showMeasurements: action.show,
-        },
-      };
-    }
-
-    case 'SET_MEASUREMENT_PRECISION': {
-      return {
-        ...state,
-        measurement: {
-          ...state.measurement,
-          precision: action.precision,
         },
       };
     }

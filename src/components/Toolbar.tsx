@@ -108,52 +108,19 @@ export const Toolbar = () => {
           Scale:
           <input
             type="number"
-            value={state.measurement.pixelsPerUnit}
+            value={state.measurement.pixelsPerMm}
             onChange={(e) =>
               dispatch({
-                type: 'SET_PIXELS_PER_UNIT',
-                value: parseFloat(e.target.value) || 10,
+                type: 'SET_PIXELS_PER_MM',
+                value: parseFloat(e.target.value) || 0.1,
               })
             }
-            min="1"
-            max="100"
-            step="1"
-            title="Pixels per unit"
+            min="0.01"
+            max="10"
+            step="0.01"
+            title="Pixels per millimeter"
           />
-          px/{state.measurement.unitSystem === 'metric' ? 'm' : 'ft'}
-        </label>
-        <label className="input-label">
-          Units:
-          <select
-            value={state.measurement.unitSystem}
-            onChange={(e) =>
-              dispatch({
-                type: 'SET_UNIT_SYSTEM',
-                system: e.target.value as 'metric' | 'imperial',
-              })
-            }
-          >
-            <option value="metric">Metric (m)</option>
-            <option value="imperial">Imperial (ft)</option>
-          </select>
-        </label>
-        <label className="input-label">
-          Precision:
-          <input
-            type="number"
-            value={state.measurement.precision}
-            onChange={(e) =>
-              dispatch({
-                type: 'SET_MEASUREMENT_PRECISION',
-                precision: parseInt(e.target.value) || 2,
-              })
-            }
-            min="0"
-            max="3"
-            step="1"
-            title="Decimal places"
-          />
-          decimals
+          px/mm
         </label>
       </div>
 

@@ -23,13 +23,9 @@ export interface Room {
 
 export type DrawingMode = 'draw' | 'select' | 'pan' | 'erase';
 
-export type UnitSystem = 'metric' | 'imperial';
-
 export interface MeasurementSettings {
-  pixelsPerUnit: number; // How many pixels = 1 real-world unit
-  unitSystem: UnitSystem; // 'metric' (meters) or 'imperial' (feet)
+  pixelsPerMm: number; // How many pixels = 1 millimeter
   showMeasurements: boolean; // Toggle wall length labels
-  precision: number; // Decimal places for measurements (0-3)
 }
 
 export interface FloorplanState {
@@ -64,10 +60,8 @@ export type FloorplanAction =
   | { type: 'SET_MODE'; mode: DrawingMode }
   | { type: 'SET_SNAP_TO_GRID'; enabled: boolean }
   | { type: 'SET_GRID_SIZE'; size: number }
-  | { type: 'SET_PIXELS_PER_UNIT'; value: number }
-  | { type: 'SET_UNIT_SYSTEM'; system: UnitSystem }
+  | { type: 'SET_PIXELS_PER_MM'; value: number }
   | { type: 'SET_SHOW_MEASUREMENTS'; show: boolean }
-  | { type: 'SET_MEASUREMENT_PRECISION'; precision: number }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'CLEAR_ALL' };
