@@ -12,6 +12,11 @@
 - ✅ Drawing tool fully functional with proper event coordination
 - ✅ Changed to one-wall-at-a-time drawing (no auto-chaining)
 - ✅ Added smart point reuse - automatically snaps to existing points within 10px
+- ✅ Verified all 4 vertex scenarios work correctly without creating duplicates:
+  1. Both vertices new → Creates 2 points + 1 wall
+  2. Start exists, end new → Reuses start, creates end + wall
+  3. Start new, end exists → Creates start, reuses end + wall
+  4. Both exist → Reuses both points, creates only wall
 
 ---
 

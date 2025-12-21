@@ -439,6 +439,74 @@ describe('PixiCanvas', () => {
 });
 ```
 
+## Drawing Logic Patterns
+
+### Vertex Reuse and Duplicate Prevention
+
+The drawing system handles 4 distinct scenarios when placing vertices:
+
+**Scenario 1: Both vertices are new**
+```typescript
+// User clicks in empty space (twice)
+// Result: Create 2 new points, create 1 wall
+// State changes: +2 points, +1 wall
+```
+
+**Scenario 2: Start vertex exists, end vertex is new**
+```typescript
+// User clicks on existing point, then empty space
+// Result: Reuse existing start point, create new end point, create wall
+// State changes: +1 point, +1 wall (no duplicate start point)
+```
+
+**Scenario 3: Start vertex is new, end vertex exists**
+```typescript
+// User clicks in empty space, then on existing point
+// Result: Create new start point, reuse existing end point, create wall
+// State changes: +1 point, +1 wall (no duplicate end point)
+```
+
+**Scenario 4: Both vertices exist**
+```typescript
+// User clicks on existing point (twice)
+// Result: Reuse both points, create wall connecting them
+// State changes: +0 points, +1 wall (no duplicates at all)
+```
+
+**Implementation Pattern:**
+```typescript
+// Before creating a point, check if one exists nearby
+const findNearbyPoint = (
+  x: number, 
+  y: number, 
+  points: Map<string, Point>, 
+  threshold: number = 10
+): Point | undefined => {
+  for (const [, point] of points) {
+    if (isNearPoint({ id: '', x, y }, point, threshold)) {
+      return point;
+    }
+  }
+  return undefined;
+};
+
+// Use in click handler
+const handleClick = (x: number, y: number) => {
+  const nearbyPoint = findNearbyPoint(x, y, state.points);
+  
+  if (nearbyPoint) {
+    // Reuse existing point - NO dispatch
+    useExistingPoint(nearbyPoint);
+  } else {
+    // Create new point - YES dispatch
+    const newPoint = { id: generateId(), x, y };
+    dispatch({ type: 'ADD_POINT', point: newPoint });
+  }
+};
+```
+
+**Key Principle**: Only dispatch `ADD_POINT` when no existing point is found within the threshold radius. This guarantees no duplicate vertices regardless of which scenario occurs.
+
 ## Git Workflow
 
 ### Branch Strategy

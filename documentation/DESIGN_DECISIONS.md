@@ -102,6 +102,36 @@
 - No automatic chaining - user must intentionally click on endpoints to connect walls
 - Visual feedback shows when near existing points
 
+### Vertex Management and Duplicate Prevention
+
+**Decision: Smart point detection with 10px snap radius**
+
+**Problem Addressed:**
+When drawing walls, we need to handle 4 distinct scenarios without creating duplicate vertices:
+
+1. **Both vertices are new** - Create and add both start and end points
+2. **Start exists, end is new** - Reuse existing start point, create new end point
+3. **Start is new, end exists** - Create new start point, reuse existing end point
+4. **Both vertices exist** - Reuse both points, only create the wall
+
+**Implementation:**
+- Before creating a point, search all existing points within 10px radius
+- If found: Reuse the existing point (no ADD_POINT dispatch)
+- If not found: Create new point and dispatch ADD_POINT action
+- This logic applies to both start and end points independently
+- **Result**: No duplicate vertices ever created, regardless of scenario
+
+**Benefits:**
+- **Data Integrity**: Prevents duplicate points at the same location
+- **Connection Support**: Walls automatically share vertices when drawn near existing points
+- **User Control**: 10px tolerance gives flexibility while preventing accidental duplicates
+- **Performance**: Efficient point lookup using Map iteration
+
+**Edge Cases Handled:**
+- Clicking on the same point twice creates a zero-length wall (cosmetic only, no duplicate)
+- Multiple walls can share the same vertices (intentional feature)
+- Grid snapping happens before point detection, ensuring consistent coordinates
+
 ### Grid and Snapping
 
 **Decision: Optional grid overlay with toggle-able snapping**

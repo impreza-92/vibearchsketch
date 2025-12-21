@@ -243,10 +243,11 @@ export const PixiCanvas = () => {
       }
 
       if (!tempStartPoint) {
-        // First click - check if clicking near existing point or create new one
+        // === FIRST CLICK: Determine start point ===
+        // Handles scenarios 1 & 2 (new start) and 3 & 4 (existing start)
         let startPoint: Point | undefined;
         
-        // Look for existing point at this location
+        // Search for existing point within 10px radius
         for (const [, point] of state.points) {
           if (isNearPoint({ id: '', x, y }, point, 10)) {
             startPoint = point;
@@ -254,25 +255,28 @@ export const PixiCanvas = () => {
           }
         }
         
-        // If no existing point found, create a new one
+        // Only create and add new point if none exists nearby
         if (!startPoint) {
+          // Scenarios 1 & 3: Create new start vertex
           startPoint = {
             id: generateId(),
             x,
             y,
           };
           dispatch({ type: 'ADD_POINT', point: startPoint });
-          console.log('First point placed:', startPoint);
+          console.log('New start point created:', startPoint);
         } else {
-          console.log('Using existing point:', startPoint);
+          // Scenarios 2 & 4: Reuse existing start vertex (no dispatch = no duplicate)
+          console.log('Reusing existing start point:', startPoint);
         }
         
         setTempStartPoint(startPoint);
       } else {
-        // Second click - create wall and reset
+        // === SECOND CLICK: Determine end point and create wall ===
+        // Handles scenarios 1 & 2 (new end) and 3 & 4 (existing end)
         let endPoint: Point | undefined;
 
-        // Look for existing point at this location
+        // Search for existing point within 10px radius
         for (const [, point] of state.points) {
           if (isNearPoint({ id: '', x, y }, point, 10)) {
             endPoint = point;
@@ -280,19 +284,22 @@ export const PixiCanvas = () => {
           }
         }
 
-        // If no existing point found, create a new one
+        // Only create and add new point if none exists nearby
         if (!endPoint) {
+          // Scenarios 1 & 2: Create new end vertex
           endPoint = {
             id: generateId(),
             x,
             y,
           };
           dispatch({ type: 'ADD_POINT', point: endPoint });
-          console.log('Second point placed:', endPoint);
+          console.log('New end point created:', endPoint);
         } else {
-          console.log('Using existing point:', endPoint);
+          // Scenarios 3 & 4: Reuse existing end vertex (no dispatch = no duplicate)
+          console.log('Reusing existing end point:', endPoint);
         }
 
+        // Create wall connecting the two points (all 4 scenarios)
         const wall: Wall = {
           id: generateId(),
           startPointId: tempStartPoint.id,
