@@ -28,7 +28,10 @@ Let's create a simple rectangular room:
 3. Click on the endpoint of the previous wall to start your next wall connected to it
 4. Click to place the other end of the second wall
 5. Continue this pattern to create a rectangle
-6. When closing the shape, click on your starting point to connect the final wall
+6. **When you close the shape** (connect the last wall back to the starting point), **a room label will automatically appear!**
+7. You'll see "Room 1" displayed in the center of your enclosed space
+
+**🎉 Automatic Room Detection**: The app uses smart algorithms to detect when walls form an enclosed space and automatically creates a room with a label at its center!
 
 ### 3. Connecting Walls
 
@@ -91,6 +94,10 @@ Made a mistake? No problem!
 │ ☑ Snap to Grid  │ ← Toggle snapping
 │ Grid Size: 10   │ ← Adjust spacing
 ├─────────────────┤
+│ Measurements    │
+│ ☑ Show Lengths  │ ← Wall measurements
+│ Scale: 0.1      │ ← Pixels per mm
+├─────────────────┤
 │ Edit            │
 │ ↶ Undo          │ ← Undo last action
 │ ↷ Redo          │ ← Redo undone action
@@ -99,6 +106,7 @@ Made a mistake? No problem!
 │ Info            │
 │ Walls: 0        │ ← Stats
 │ Points: 0       │
+│ Rooms: 0        │ ← Detected rooms
 │ Mode: draw      │
 └─────────────────┘
 ```
@@ -107,13 +115,18 @@ Made a mistake? No problem!
 
 1. **Connect Walls**: To connect walls together, click on an existing endpoint when starting or ending a new wall
 2. **Point Reuse**: The app automatically detects when you click near an existing point (within 10 pixels) and reuses it
-3. **Escape Key**: Press Escape to cancel current drawing if you've only placed one point
-4. **Visual Feedback**: 
+3. **Room Detection**: When you close a shape with walls, a room is automatically detected and labeled
+4. **Room Labels**: Room names appear in light blue at the center of each enclosed space
+5. **Escape Key**: Press Escape to cancel current drawing if you've only placed one point
+6. **Visual Feedback**: 
    - Orange = Preview (temporary)
    - White = Drawn walls
+   - Orange text = Wall measurements
+   - Light blue text = Room names
    - Small circles = Endpoints
-5. **Grid Helps**: Keep snap-to-grid on for clean, aligned walls
-6. **Adjust Grid**: Use larger grid (20-30) for rough sketches, smaller (5-10) for details
+7. **Grid Helps**: Keep snap-to-grid on for clean, aligned walls
+8. **Adjust Grid**: Use larger grid (20-30) for rough sketches, smaller (5-10) for details
+9. **Multiple Rooms**: Draw separate enclosed spaces and each will be detected as a different room
 
 ## 🐛 Troubleshooting
 

@@ -154,6 +154,9 @@ export const Toolbar = () => {
           Points: {state.points.size}
         </div>
         <div className="info-text">
+          Rooms: {state.rooms.size}
+        </div>
+        <div className="info-text">
           Mode: {state.mode}
         </div>
       </div>

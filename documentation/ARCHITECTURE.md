@@ -78,13 +78,15 @@ interface FloorplanState {
 
 ### 4. Data Model
 
-**Decision: Graph-based wall representation**
+**Decision: Graph-based wall representation with automatic room detection**
 
 **Rationale:**
 - Walls as edges between points (nodes) create a flexible graph structure
-- Easy to detect shared walls and room boundaries
+- Easy to detect shared walls and room boundaries through cycle detection
 - Efficient for hit detection and selection
 - Natural representation for architectural elements
+- Rooms are simple cycles in the graph
+- Automatic detection provides immediate visual feedback
 
 **Core Types:**
 ```typescript
@@ -98,6 +100,32 @@ interface Wall {
   id: string
   startPointId: string
   endPointId: string
+  thickness: number
+  style: 'solid' | 'dashed'
+}
+
+interface Room {
+  id: string
+  name: string
+  wallIds: string[]
+  centroid: { x: number; y: number }
+  area: number
+  fill?: string
+}
+```
+
+**Graph Structure:**
+- **Vertices (Nodes)**: Points stored in `Map<string, Point>`
+- **Edges**: Walls stored in `Map<string, Wall>` connecting points
+- **Cycles**: Rooms detected as closed paths in the graph
+- **Adjacency List**: Built dynamically for cycle detection
+
+**Room Detection:**
+- Uses Depth-First Search (DFS) to find simple cycles
+- Filters cycles by minimum area threshold
+- Calculates centroid using average of vertex coordinates
+- Calculates area using Shoelace formula
+- Automatically triggers on wall addition
   thickness: number
   style: 'solid' | 'dashed'
 }

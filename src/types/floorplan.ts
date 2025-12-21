@@ -18,6 +18,8 @@ export interface Room {
   id: string;
   name: string;
   wallIds: string[];
+  centroid: { x: number; y: number }; // Center point for label
+  area: number; // Area in square pixels
   fill?: string;
 }
 
@@ -55,6 +57,10 @@ export type FloorplanAction =
   | { type: 'ADD_POINT'; point: Point }
   | { type: 'ADD_WALL'; wall: Wall }
   | { type: 'REMOVE_WALL'; wallId: string }
+  | { type: 'ADD_ROOM'; room: Room }
+  | { type: 'UPDATE_ROOM'; roomId: string; updates: Partial<Room> }
+  | { type: 'REMOVE_ROOM'; roomId: string }
+  | { type: 'DETECT_ROOMS' } // Detect all rooms in the current floorplan
   | { type: 'SELECT'; ids: string[] }
   | { type: 'DESELECT_ALL' }
   | { type: 'SET_MODE'; mode: DrawingMode }

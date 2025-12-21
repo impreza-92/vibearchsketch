@@ -5,6 +5,7 @@ import type {
   FloorplanAction,
   FloorplanSnapshot,
 } from '../types/floorplan';
+import { detectRooms } from '../utils/roomDetection';
 
 // Initial state
 const initialState: FloorplanState = {
@@ -69,6 +70,13 @@ const floorplanReducer = (
       const newWalls = new Map(state.walls);
       newWalls.set(action.wall.id, action.wall);
 
+      // Check for new rooms after adding the wall
+      const newRooms = new Map(state.rooms);
+      const detectedRooms = detectRooms(state.points, newWalls, state.rooms);
+      detectedRooms.forEach(room => {
+        newRooms.set(room.id, room);
+      });
+
       // Add to history
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push(createSnapshot(state));
@@ -76,6 +84,7 @@ const floorplanReducer = (
       return {
         ...state,
         walls: newWalls,
+        rooms: newRooms,
         history: newHistory,
         historyIndex: newHistory.length - 1,
       };
@@ -92,6 +101,80 @@ const floorplanReducer = (
       return {
         ...state,
         walls: newWalls,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    }
+
+    case 'ADD_ROOM': {
+      const newRooms = new Map(state.rooms);
+      newRooms.set(action.room.id, action.room);
+
+      // Add to history
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(createSnapshot(state));
+
+      return {
+        ...state,
+        rooms: newRooms,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    }
+
+    case 'UPDATE_ROOM': {
+      const room = state.rooms.get(action.roomId);
+      if (!room) return state;
+
+      const newRooms = new Map(state.rooms);
+      newRooms.set(action.roomId, { ...room, ...action.updates });
+
+      // Add to history
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(createSnapshot(state));
+
+      return {
+        ...state,
+        rooms: newRooms,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    }
+
+    case 'REMOVE_ROOM': {
+      const newRooms = new Map(state.rooms);
+      newRooms.delete(action.roomId);
+
+      // Add to history
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(createSnapshot(state));
+
+      return {
+        ...state,
+        rooms: newRooms,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    }
+
+    case 'DETECT_ROOMS': {
+      // Detect all rooms in the current floorplan
+      const detectedRooms = detectRooms(state.points, state.walls, state.rooms);
+      
+      if (detectedRooms.length === 0) return state;
+
+      const newRooms = new Map(state.rooms);
+      detectedRooms.forEach(room => {
+        newRooms.set(room.id, room);
+      });
+
+      // Add to history
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(createSnapshot(state));
+
+      return {
+        ...state,
+        rooms: newRooms,
         history: newHistory,
         historyIndex: newHistory.length - 1,
       };

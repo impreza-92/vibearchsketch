@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
 import { useFloorplan } from '../context/FloorplanContext';
-import type { Point, Wall } from '../types/floorplan';
+import type { Point, Wall, Room } from '../types/floorplan';
 import { snapToGrid, generateId, isNearPoint } from '../utils/geometry';
 import { formatWallLength } from '../utils/measurements';
 
@@ -12,6 +12,7 @@ export const PixiCanvas = () => {
   const wallsGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const previewGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const measurementContainerRef = useRef<PIXI.Container | null>(null);
+  const roomContainerRef = useRef<PIXI.Container | null>(null);
 
   const { state, dispatch } = useFloorplan();
   const [tempStartPoint, setTempStartPoint] = useState<Point | null>(null);
@@ -68,6 +69,11 @@ export const PixiCanvas = () => {
       const measurementContainer = new PIXI.Container();
       measurementContainerRef.current = measurementContainer;
       app.stage.addChild(measurementContainer);
+
+      // Create room container for room labels (on top of everything)
+      const roomContainer = new PIXI.Container();
+      roomContainerRef.current = roomContainer;
+      app.stage.addChild(roomContainer);
 
       // Enable interaction on stage
       app.stage.eventMode = 'static';
@@ -237,6 +243,45 @@ export const PixiCanvas = () => {
       }
     });
   }, [state.walls, state.points, state.selectedIds, state.measurement]);
+
+  // Render rooms
+  useEffect(() => {
+    if (!roomContainerRef.current) return;
+
+    const roomContainer = roomContainerRef.current;
+    roomContainer.removeChildren();
+
+    // Draw all rooms
+    state.rooms.forEach((room: Room) => {
+      // Create room label
+      const text = new PIXI.Text({
+        text: room.name,
+        style: {
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 16,
+          fill: 0x88ccff,
+          fontWeight: 'bold',
+        },
+      });
+
+      text.anchor.set(0.5, 0.5);
+      text.x = room.centroid.x;
+      text.y = room.centroid.y;
+
+      // Add semi-transparent background
+      const bg = new PIXI.Graphics();
+      bg.rect(
+        room.centroid.x - text.width / 2 - 4,
+        room.centroid.y - text.height / 2 - 2,
+        text.width + 8,
+        text.height + 4
+      );
+      bg.fill({ color: 0x000000, alpha: 0.6 });
+
+      roomContainer.addChild(bg);
+      roomContainer.addChild(text);
+    });
+  }, [state.rooms]);
 
   // Handle mouse move
   useEffect(() => {
