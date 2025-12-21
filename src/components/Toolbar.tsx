@@ -90,6 +90,74 @@ export const Toolbar = () => {
       </div>
 
       <div className="toolbar-section">
+        <h3>Measurements</h3>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={state.measurement.showMeasurements}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_SHOW_MEASUREMENTS',
+                show: e.target.checked,
+              })
+            }
+          />
+          Show Lengths
+        </label>
+        <label className="input-label">
+          Scale:
+          <input
+            type="number"
+            value={state.measurement.pixelsPerUnit}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_PIXELS_PER_UNIT',
+                value: parseFloat(e.target.value) || 10,
+              })
+            }
+            min="1"
+            max="100"
+            step="1"
+            title="Pixels per unit"
+          />
+          px/{state.measurement.unitSystem === 'metric' ? 'm' : 'ft'}
+        </label>
+        <label className="input-label">
+          Units:
+          <select
+            value={state.measurement.unitSystem}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_UNIT_SYSTEM',
+                system: e.target.value as 'metric' | 'imperial',
+              })
+            }
+          >
+            <option value="metric">Metric (m)</option>
+            <option value="imperial">Imperial (ft)</option>
+          </select>
+        </label>
+        <label className="input-label">
+          Precision:
+          <input
+            type="number"
+            value={state.measurement.precision}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_MEASUREMENT_PRECISION',
+                precision: parseInt(e.target.value) || 2,
+              })
+            }
+            min="0"
+            max="3"
+            step="1"
+            title="Decimal places"
+          />
+          decimals
+        </label>
+      </div>
+
+      <div className="toolbar-section">
         <h3>Edit</h3>
         <button
           onClick={handleUndo}

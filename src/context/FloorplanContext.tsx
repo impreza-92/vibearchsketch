@@ -15,6 +15,12 @@ const initialState: FloorplanState = {
   mode: 'draw',
   gridSize: 10,
   snapToGrid: true,
+  measurement: {
+    pixelsPerUnit: 10, // 10 pixels = 1 unit (default matches grid)
+    unitSystem: 'metric', // meters by default
+    showMeasurements: true, // Show wall lengths by default
+    precision: 2, // 2 decimal places
+  },
   history: [],
   historyIndex: -1,
 };
@@ -126,6 +132,46 @@ const floorplanReducer = (
       return {
         ...state,
         gridSize: action.size,
+      };
+    }
+
+    case 'SET_PIXELS_PER_UNIT': {
+      return {
+        ...state,
+        measurement: {
+          ...state.measurement,
+          pixelsPerUnit: action.value,
+        },
+      };
+    }
+
+    case 'SET_UNIT_SYSTEM': {
+      return {
+        ...state,
+        measurement: {
+          ...state.measurement,
+          unitSystem: action.system,
+        },
+      };
+    }
+
+    case 'SET_SHOW_MEASUREMENTS': {
+      return {
+        ...state,
+        measurement: {
+          ...state.measurement,
+          showMeasurements: action.show,
+        },
+      };
+    }
+
+    case 'SET_MEASUREMENT_PRECISION': {
+      return {
+        ...state,
+        measurement: {
+          ...state.measurement,
+          precision: action.precision,
+        },
       };
     }
 

@@ -3,6 +3,7 @@ import * as PIXI from 'pixi.js';
 import { useFloorplan } from '../context/FloorplanContext';
 import type { Point, Wall } from '../types/floorplan';
 import { snapToGrid, generateId, isNearPoint } from '../utils/geometry';
+import { formatWallLength } from '../utils/measurements';
 
 export const PixiCanvas = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -10,6 +11,7 @@ export const PixiCanvas = () => {
   const gridGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const wallsGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const previewGraphicsRef = useRef<PIXI.Graphics | null>(null);
+  const measurementContainerRef = useRef<PIXI.Container | null>(null);
 
   const { state, dispatch } = useFloorplan();
   const [tempStartPoint, setTempStartPoint] = useState<Point | null>(null);
@@ -61,6 +63,11 @@ export const PixiCanvas = () => {
       const previewGraphics = new PIXI.Graphics();
       previewGraphicsRef.current = previewGraphics;
       app.stage.addChild(previewGraphics);
+
+      // Create measurement container for text labels
+      const measurementContainer = new PIXI.Container();
+      measurementContainerRef.current = measurementContainer;
+      app.stage.addChild(measurementContainer);
 
       // Enable interaction on stage
       app.stage.eventMode = 'static';
@@ -143,10 +150,14 @@ export const PixiCanvas = () => {
 
   // Render walls
   useEffect(() => {
-    if (!wallsGraphicsRef.current) return;
+    if (!wallsGraphicsRef.current || !measurementContainerRef.current) return;
 
     const graphics = wallsGraphicsRef.current;
+    const measurementContainer = measurementContainerRef.current;
+    
     graphics.clear();
+    // Clear previous measurement labels
+    measurementContainer.removeChildren();
 
     // Draw all walls
     state.walls.forEach((wall: Wall) => {
@@ -169,9 +180,63 @@ export const PixiCanvas = () => {
           .fill(color)
           .circle(endPoint.x, endPoint.y, 4)
           .fill(color);
+
+        // Add measurement label if enabled
+        if (state.measurement.showMeasurements) {
+          const measurementText = formatWallLength(
+            startPoint,
+            endPoint,
+            state.measurement
+          );
+
+          const text = new PIXI.Text({
+            text: measurementText,
+            style: {
+              fontFamily: 'Arial, sans-serif',
+              fontSize: 12,
+              fill: 0xffaa00,
+              fontWeight: 'bold',
+            },
+          });
+
+          // Position text at midpoint of wall
+          const midX = (startPoint.x + endPoint.x) / 2;
+          const midY = (startPoint.y + endPoint.y) / 2;
+          
+          // Calculate rotation to align with wall
+          const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+          
+          text.anchor.set(0.5, 0.5);
+          text.x = midX;
+          text.y = midY;
+          text.rotation = angle;
+
+          // Add background for better readability
+          const bg = new PIXI.Graphics();
+          bg.rect(
+            -text.width / 2 - 2,
+            -text.height / 2 - 1,
+            text.width + 4,
+            text.height + 2
+          );
+          bg.fill({ color: 0x000000, alpha: 0.7 });
+          
+          const label = new PIXI.Container();
+          label.x = midX;
+          label.y = midY;
+          label.rotation = angle;
+          label.addChild(bg);
+          label.addChild(text);
+          
+          // Reset text position relative to container
+          text.x = 0;
+          text.y = 0;
+
+          measurementContainer.addChild(label);
+        }
       }
     });
-  }, [state.walls, state.points, state.selectedIds]);
+  }, [state.walls, state.points, state.selectedIds, state.measurement]);
 
   // Handle mouse move
   useEffect(() => {
