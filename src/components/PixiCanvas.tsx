@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
 import { useFloorplan } from '../context/FloorplanContext';
 import type { Point, Wall, Room } from '../types/floorplan';
-import { snapToGrid, generateId, isNearPoint } from '../utils/geometry';
+import { snapToGrid, generateId, isNearPoint, isPointOnLineSegment } from '../utils/geometry';
 import { formatWallLength } from '../utils/measurements';
 
 export const PixiCanvas = () => {
@@ -354,10 +354,10 @@ export const PixiCanvas = () => {
 
       if (!tempStartPoint) {
         // === FIRST CLICK: Determine start point ===
-        // Handles scenarios 1 & 2 (new start) and 3 & 4 (existing start)
+        // Handles scenarios 1 & 2 (new start) and 3 & 4 (existing start) and 5 (split edge)
         let startPoint: Point | undefined;
         
-        // Search for existing point within 10px radius
+        // First, search for existing point within 10px radius
         for (const [, point] of state.points) {
           if (isNearPoint({ id: '', x, y }, point, 10)) {
             startPoint = point;
@@ -365,7 +365,33 @@ export const PixiCanvas = () => {
           }
         }
         
-        // Only create and add new point if none exists nearby
+        // If no nearby point, check if clicking on an existing wall (Scenario 5)
+        if (!startPoint) {
+          for (const [wallId, wall] of state.walls) {
+            const startWallPoint = state.points.get(wall.startPointId);
+            const endWallPoint = state.points.get(wall.endPointId);
+            
+            if (startWallPoint && endWallPoint) {
+              if (isPointOnLineSegment({ id: '', x, y }, startWallPoint, endWallPoint, 8)) {
+                // Scenario 5: Split the wall at this point
+                const splitPoint: Point = {
+                  id: generateId(),
+                  x,
+                  y,
+                };
+                
+                dispatch({ type: 'SPLIT_WALL', wallId, splitPoint });
+                console.log('Wall split at point:', splitPoint);
+                
+                // Use the split point as the start point
+                startPoint = splitPoint;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Only create and add new point if none exists nearby and not on wall
         if (!startPoint) {
           // Scenarios 1 & 3: Create new start vertex
           startPoint = {
@@ -375,6 +401,10 @@ export const PixiCanvas = () => {
           };
           dispatch({ type: 'ADD_POINT', point: startPoint });
           console.log('New start point created:', startPoint);
+        } else if (!state.points.has(startPoint.id)) {
+          // Edge case: split point needs to be waited for (it's in the dispatch queue)
+          // The split point will be available in the next render
+          console.log('Using split point as start:', startPoint);
         } else {
           // Scenarios 2 & 4: Reuse existing start vertex (no dispatch = no duplicate)
           console.log('Reusing existing start point:', startPoint);
@@ -383,10 +413,10 @@ export const PixiCanvas = () => {
         setTempStartPoint(startPoint);
       } else {
         // === SECOND CLICK: Determine end point and create wall ===
-        // Handles scenarios 1 & 2 (new end) and 3 & 4 (existing end)
+        // Handles scenarios 1 & 2 (new end) and 3 & 4 (existing end) and 5 (split edge)
         let endPoint: Point | undefined;
 
-        // Search for existing point within 10px radius
+        // First, search for existing point within 10px radius
         for (const [, point] of state.points) {
           if (isNearPoint({ id: '', x, y }, point, 10)) {
             endPoint = point;
@@ -394,7 +424,33 @@ export const PixiCanvas = () => {
           }
         }
 
-        // Only create and add new point if none exists nearby
+        // If no nearby point, check if clicking on an existing wall (Scenario 5)
+        if (!endPoint) {
+          for (const [wallId, wall] of state.walls) {
+            const startWallPoint = state.points.get(wall.startPointId);
+            const endWallPoint = state.points.get(wall.endPointId);
+            
+            if (startWallPoint && endWallPoint) {
+              if (isPointOnLineSegment({ id: '', x, y }, startWallPoint, endWallPoint, 8)) {
+                // Scenario 5: Split the wall at this point
+                const splitPoint: Point = {
+                  id: generateId(),
+                  x,
+                  y,
+                };
+                
+                dispatch({ type: 'SPLIT_WALL', wallId, splitPoint });
+                console.log('Wall split at point:', splitPoint);
+                
+                // Use the split point as the end point
+                endPoint = splitPoint;
+                break;
+              }
+            }
+          }
+        }
+
+        // Only create and add new point if none exists nearby and not on wall
         if (!endPoint) {
           // Scenarios 1 & 2: Create new end vertex
           endPoint = {
@@ -404,12 +460,15 @@ export const PixiCanvas = () => {
           };
           dispatch({ type: 'ADD_POINT', point: endPoint });
           console.log('New end point created:', endPoint);
+        } else if (!state.points.has(endPoint.id)) {
+          // Edge case: split point needs to be waited for (it's in the dispatch queue)
+          console.log('Using split point as end:', endPoint);
         } else {
           // Scenarios 3 & 4: Reuse existing end vertex (no dispatch = no duplicate)
           console.log('Reusing existing end point:', endPoint);
         }
 
-        // Create wall connecting the two points (all 4 scenarios)
+        // Create wall connecting the two points (all 5 scenarios)
         const wall: Wall = {
           id: generateId(),
           startPointId: tempStartPoint.id,

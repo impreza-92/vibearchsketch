@@ -57,6 +57,7 @@ export type FloorplanAction =
   | { type: 'ADD_POINT'; point: Point }
   | { type: 'ADD_WALL'; wall: Wall }
   | { type: 'REMOVE_WALL'; wallId: string }
+  | { type: 'SPLIT_WALL'; wallId: string; splitPoint: Point } // Split wall at point
   | { type: 'ADD_ROOM'; room: Room }
   | { type: 'UPDATE_ROOM'; roomId: string; updates: Partial<Room> }
   | { type: 'REMOVE_ROOM'; roomId: string }

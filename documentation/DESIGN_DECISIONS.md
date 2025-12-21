@@ -104,33 +104,58 @@
 
 ### Vertex Management and Duplicate Prevention
 
-**Decision: Smart point detection with 10px snap radius**
+**Decision: Smart point detection with 10px snap radius and edge splitting**
 
 **Problem Addressed:**
-When drawing walls, we need to handle 4 distinct scenarios without creating duplicate vertices:
+When drawing walls, we need to handle 5 distinct scenarios without creating duplicate vertices:
 
 1. **Both vertices are new** - Create and add both start and end points
 2. **Start exists, end is new** - Reuse existing start point, create new end point
 3. **Start is new, end exists** - Create new start point, reuse existing end point
 4. **Both vertices exist** - Reuse both points, only create the wall
+5. **Click on existing edge** - Split the edge at the click point, creating a new vertex and two walls
 
 **Implementation:**
-- Before creating a point, search all existing points within 10px radius
-- If found: Reuse the existing point (no ADD_POINT dispatch)
-- If not found: Create new point and dispatch ADD_POINT action
-- This logic applies to both start and end points independently
-- **Result**: No duplicate vertices ever created, regardless of scenario
+- **Point Detection** (Scenarios 1-4):
+  - Before creating a point, search all existing points within 10px radius
+  - If found: Reuse the existing point (no ADD_POINT dispatch)
+  - If not found: Check if clicking on an existing wall (Scenario 5)
+  - If not on wall: Create new point and dispatch ADD_POINT action
+  
+- **Edge Splitting** (Scenario 5):
+  - Calculate perpendicular distance from click to each wall segment
+  - If distance < 8px AND not near endpoints (t > 0.1 and t < 0.9):
+    - Create new point at click position
+    - Remove original wall
+    - Create two new walls: start→new and new→end
+    - Update any rooms referencing the split wall
+  - Use the new point as start/end point for next wall
 
 **Benefits:**
 - **Data Integrity**: Prevents duplicate points at the same location
+- **T-Junctions**: Properly connects perpendicular walls to existing walls
+- **Room Topology**: Split walls correctly update room boundaries
 - **Connection Support**: Walls automatically share vertices when drawn near existing points
-- **User Control**: 10px tolerance gives flexibility while preventing accidental duplicates
-- **Performance**: Efficient point lookup using Map iteration
+- **User Control**: 10px tolerance for points, 8px for edges - gives flexibility while preventing accidental behavior
+- **Performance**: Efficient lookup using Map iteration
 
 **Edge Cases Handled:**
 - Clicking on the same point twice creates a zero-length wall (cosmetic only, no duplicate)
 - Multiple walls can share the same vertices (intentional feature)
-- Grid snapping happens before point detection, ensuring consistent coordinates
+- Grid snapping happens before point/edge detection, ensuring consistent coordinates
+- Split points near endpoints (t < 0.1 or t > 0.9) are treated as clicking on the endpoint
+- Rooms automatically update when walls are split (wallIds array updated)
+
+**Why Edge Splitting Matters:**
+In architectural drawing, it's common to draw perpendicular walls that meet an existing wall at a T-junction. Without edge splitting:
+- The new wall would either miss the existing wall or create a floating point
+- Room detection would fail because walls aren't properly connected
+- Manual vertex creation would be required (tedious workflow)
+
+With edge splitting:
+- Click anywhere on a wall to create a connection point
+- New walls automatically connect to the split point
+- Room topology remains valid (split wall replaced by two walls in room boundary)
 
 ### Grid and Snapping
 

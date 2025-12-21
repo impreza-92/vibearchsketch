@@ -441,9 +441,9 @@ describe('PixiCanvas', () => {
 
 ## Drawing Logic Patterns
 
-### Vertex Reuse and Duplicate Prevention
+### Vertex Reuse, Edge Splitting, and Duplicate Prevention
 
-The drawing system handles 4 distinct scenarios when placing vertices:
+The drawing system handles 5 distinct scenarios when placing vertices:
 
 **Scenario 1: Both vertices are new**
 ```typescript
@@ -473,9 +473,17 @@ The drawing system handles 4 distinct scenarios when placing vertices:
 // State changes: +0 points, +1 wall (no duplicates at all)
 ```
 
+**Scenario 5: Click on existing edge (split wall)**
+```typescript
+// User clicks on an existing wall (not near its endpoints)
+// Result: Create new point at click location, split wall into two walls
+// State changes: +1 point, -1 wall (old), +2 walls (new)
+// Room updates: Any room using the old wall now references both new walls
+```
+
 **Implementation Pattern:**
 ```typescript
-// Before creating a point, check if one exists nearby
+// 1. Check for nearby point
 const findNearbyPoint = (
   x: number, 
   y: number, 
@@ -490,14 +498,45 @@ const findNearbyPoint = (
   return undefined;
 };
 
-// Use in click handler
+// 2. Check if clicking on a wall (if no nearby point)
+const findWallAtPoint = (
+  x: number,
+  y: number,
+  walls: Map<string, Wall>,
+  points: Map<string, Point>,
+  threshold: number = 8
+): { wallId: string; wall: Wall } | undefined => {
+  for (const [wallId, wall] of walls) {
+    const startPoint = points.get(wall.startPointId);
+    const endPoint = points.get(wall.endPointId);
+    
+    if (startPoint && endPoint) {
+      if (isPointOnLineSegment({ id: '', x, y }, startPoint, endPoint, threshold)) {
+        return { wallId, wall };
+      }
+    }
+  }
+  return undefined;
+};
+
+// 3. Use in click handler
 const handleClick = (x: number, y: number) => {
+  // First priority: existing points
   const nearbyPoint = findNearbyPoint(x, y, state.points);
   
   if (nearbyPoint) {
     // Reuse existing point - NO dispatch
     useExistingPoint(nearbyPoint);
   } else {
+    // Second priority: existing walls (split them)
+    const wallAtPoint = findWallAtPoint(x, y, state.walls, state.points);
+    
+    if (wallAtPoint) {
+      // Scenario 5: Split the wall
+      const splitPoint: Point = { id: generateId(), x, y };
+      dispatch({ type: 'SPLIT_WALL', wallId: wallAtPoint.wallId, splitPoint });
+      useNewPoint(splitPoint);
+    } else {
     // Create new point - YES dispatch
     const newPoint = { id: generateId(), x, y };
     dispatch({ type: 'ADD_POINT', point: newPoint });

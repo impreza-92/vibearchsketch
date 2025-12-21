@@ -18,11 +18,13 @@
 - ✅ **NEW: Room detection system with graph-based cycle detection**
 - ✅ **NEW: Automatic room labeling at centroid**
 - ✅ **NEW: Room area calculation using Shoelace formula**
-- ✅ Verified all 4 vertex scenarios work correctly without creating duplicates:
+- ✅ **NEW: Edge splitting - click on wall to split it into two walls**
+- ✅ Verified all 5 vertex scenarios work correctly without creating duplicates:
   1. Both vertices new → Creates 2 points + 1 wall
   2. Start exists, end new → Reuses start, creates end + wall
   3. Start new, end exists → Creates start, reuses end + wall
   4. Both exist → Reuses both points, creates only wall
+  5. Click on edge → Splits wall, creates new point, creates 2 new walls
 
 ---
 

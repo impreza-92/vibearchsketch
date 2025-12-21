@@ -4,8 +4,10 @@ import type {
   FloorplanState,
   FloorplanAction,
   FloorplanSnapshot,
+  Wall,
 } from '../types/floorplan';
 import { detectRooms } from '../utils/roomDetection';
+import { generateId } from '../utils/geometry';
 
 // Initial state
 const initialState: FloorplanState = {
@@ -101,6 +103,75 @@ const floorplanReducer = (
       return {
         ...state,
         walls: newWalls,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    }
+
+    case 'SPLIT_WALL': {
+      // Get the wall to split
+      const wallToSplit = state.walls.get(action.wallId);
+      if (!wallToSplit) return state;
+
+      const newPoints = new Map(state.points);
+      const newWalls = new Map(state.walls);
+      const newRooms = new Map(state.rooms);
+
+      // Add the split point
+      newPoints.set(action.splitPoint.id, action.splitPoint);
+
+      // Remove the original wall
+      newWalls.delete(action.wallId);
+
+      // Create two new walls
+      const wall1: Wall = {
+        id: generateId(),
+        startPointId: wallToSplit.startPointId,
+        endPointId: action.splitPoint.id,
+        thickness: wallToSplit.thickness,
+        style: wallToSplit.style,
+      };
+
+      const wall2: Wall = {
+        id: generateId(),
+        startPointId: action.splitPoint.id,
+        endPointId: wallToSplit.endPointId,
+        thickness: wallToSplit.thickness,
+        style: wallToSplit.style,
+      };
+
+      newWalls.set(wall1.id, wall1);
+      newWalls.set(wall2.id, wall2);
+
+      // Update rooms that reference the split wall
+      newRooms.forEach((room, roomId) => {
+        if (room.wallIds.includes(action.wallId)) {
+          const updatedWallIds = room.wallIds.map((id) =>
+            id === action.wallId ? [wall1.id, wall2.id] : [id]
+          ).flat();
+
+          newRooms.set(roomId, {
+            ...room,
+            wallIds: updatedWallIds,
+          });
+        }
+      });
+
+      // Re-detect rooms to update centroids and areas
+      const detectedRooms = detectRooms(newPoints, newWalls, newRooms);
+      detectedRooms.forEach(room => {
+        newRooms.set(room.id, room);
+      });
+
+      // Add to history
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(createSnapshot(state));
+
+      return {
+        ...state,
+        points: newPoints,
+        walls: newWalls,
+        rooms: newRooms,
         history: newHistory,
         historyIndex: newHistory.length - 1,
       };

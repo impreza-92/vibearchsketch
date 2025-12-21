@@ -70,3 +70,64 @@ export const lineSegmentsIntersect = (
 export const generateId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+/**
+ * Calculate the perpendicular distance from a point to a line segment
+ * Returns the distance and the closest point on the segment
+ */
+export const pointToLineSegmentDistance = (
+  point: Point,
+  lineStart: Point,
+  lineEnd: Point
+): { distance: number; closestPoint: Point; t: number } => {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  
+  // If line segment is actually a point
+  if (dx === 0 && dy === 0) {
+    return {
+      distance: distance(point, lineStart),
+      closestPoint: lineStart,
+      t: 0,
+    };
+  }
+
+  // Calculate t parameter for closest point on infinite line
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy)
+    )
+  );
+
+  // Calculate closest point on line segment
+  const closestPoint: Point = {
+    id: '',
+    x: lineStart.x + t * dx,
+    y: lineStart.y + t * dy,
+  };
+
+  return {
+    distance: distance(point, closestPoint),
+    closestPoint,
+    t, // 0 = at start, 1 = at end, 0.5 = at middle
+  };
+};
+
+/**
+ * Check if a point is on a line segment (within tolerance)
+ * Returns true only if the point is ON the segment (not near endpoints)
+ */
+export const isPointOnLineSegment = (
+  point: Point,
+  lineStart: Point,
+  lineEnd: Point,
+  tolerance: number = 5
+): boolean => {
+  const { distance: dist, t } = pointToLineSegmentDistance(point, lineStart, lineEnd);
+  
+  // Point must be close to the line AND not near the endpoints
+  // t > 0.1 and t < 0.9 ensures we're not too close to endpoints
+  return dist <= tolerance && t > 0.1 && t < 0.9;
+};
