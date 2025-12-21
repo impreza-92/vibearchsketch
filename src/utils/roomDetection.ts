@@ -268,3 +268,63 @@ export function checkForNewRoom(
   // Return the first new room found (if any)
   return detectedRooms.length > 0 ? detectedRooms[0] : null;
 }
+
+/**
+ * Update room properties (centroid and area) based on current wall positions
+ * Does NOT create new rooms, only updates existing ones
+ */
+export function updateRoomProperties(
+  room: Room,
+  points: Map<string, Point>,
+  walls: Map<string, Wall>
+): Room {
+  // Get all points in the room by following the walls
+  const pointIds: string[] = [];
+  const visitedWalls = new Set<string>();
+  
+  // Start with the first wall
+  if (room.wallIds.length === 0) return room;
+  
+  let currentPointId: string | undefined;
+  
+  // Find the starting point from the first wall
+  const firstWall = walls.get(room.wallIds[0]);
+  if (!firstWall) return room;
+  
+  currentPointId = firstWall.startPointId;
+  pointIds.push(currentPointId);
+  
+  // Follow the walls around the room
+  for (let i = 0; i < room.wallIds.length; i++) {
+    const wallId = room.wallIds[i];
+    if (visitedWalls.has(wallId)) continue;
+    
+    const wall = walls.get(wallId);
+    if (!wall) continue;
+    
+    visitedWalls.add(wallId);
+    
+    // Determine next point
+    if (wall.startPointId === currentPointId) {
+      currentPointId = wall.endPointId;
+      if (i < room.wallIds.length - 1) {
+        pointIds.push(currentPointId);
+      }
+    } else if (wall.endPointId === currentPointId) {
+      currentPointId = wall.startPointId;
+      if (i < room.wallIds.length - 1) {
+        pointIds.push(currentPointId);
+      }
+    }
+  }
+  
+  // Calculate new centroid and area
+  const centroid = calculateCentroid(pointIds, points);
+  const area = calculatePolygonArea(pointIds, points);
+  
+  return {
+    ...room,
+    centroid: { x: centroid.x, y: centroid.y },
+    area,
+  };
+}

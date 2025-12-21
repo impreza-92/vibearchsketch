@@ -168,6 +168,39 @@ case 'ADD_WALL': {
 }
 ```
 
+**Important: Edge Splitting Behavior**
+
+When splitting an edge with `SPLIT_WALL` action, we **update existing rooms** instead of detecting new ones:
+
+```typescript
+case 'SPLIT_WALL': {
+  // ... split wall into wall1 and wall2 ...
+  
+  // Update existing rooms (NOT detect new ones)
+  newRooms.forEach((room, roomId) => {
+    if (room.wallIds.includes(oldWallId)) {
+      // Replace old wall ID with two new wall IDs
+      const updatedWallIds = room.wallIds.map(id =>
+        id === oldWallId ? [wall1.id, wall2.id] : [id]
+      ).flat();
+      
+      // Recalculate centroid and area
+      const roomWithNewProps = updateRoomProperties(
+        { ...room, wallIds: updatedWallIds },
+        newPoints,
+        newWalls
+      );
+      
+      newRooms.set(roomId, roomWithNewProps);
+    }
+  });
+  
+  // Do NOT call detectRooms() - this would create duplicates!
+}
+```
+
+This approach prevents creating duplicate rooms when splitting edges. The room maintains its identity (ID) and name, only updating its wall references and geometric properties.
+
 ### Duplicate Prevention
 
 The detection algorithm prevents duplicate rooms by:
@@ -267,12 +300,14 @@ Drawing walls that create separate enclosed spaces:
    - `filterValidRooms()` - Area-based filtering
    - `calculateCentroid()` - Centroid calculation
    - `calculatePolygonArea()` - Shoelace formula
-   - `detectRooms()` - Main detection function
+   - `detectRooms()` - Main detection function (creates new rooms)
    - `checkForNewRoom()` - Single room detection
+   - `updateRoomProperties()` - Update existing room's centroid and area without creating duplicates
 
 2. **`src/context/FloorplanContext.tsx`**
    - Room action handlers (`ADD_ROOM`, `UPDATE_ROOM`, `REMOVE_ROOM`, `DETECT_ROOMS`)
    - Automatic detection in `ADD_WALL` action
+   - Room property updates in `SPLIT_WALL` action (uses `updateRoomProperties()`)
 
 3. **`src/components/PixiCanvas.tsx`**
    - Room label rendering

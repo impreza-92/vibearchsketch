@@ -6,7 +6,7 @@ import type {
   FloorplanSnapshot,
   Wall,
 } from '../types/floorplan';
-import { detectRooms } from '../utils/roomDetection';
+import { detectRooms, updateRoomProperties } from '../utils/roomDetection';
 import { generateId } from '../utils/geometry';
 
 // Initial state
@@ -146,21 +146,21 @@ const floorplanReducer = (
       // Update rooms that reference the split wall
       newRooms.forEach((room, roomId) => {
         if (room.wallIds.includes(action.wallId)) {
+          // Replace old wall ID with two new wall IDs
           const updatedWallIds = room.wallIds.map((id) =>
             id === action.wallId ? [wall1.id, wall2.id] : [id]
           ).flat();
 
-          newRooms.set(roomId, {
+          // Update wall IDs and recalculate centroid and area
+          const updatedRoom = {
             ...room,
             wallIds: updatedWallIds,
-          });
+          };
+          
+          // Recalculate centroid and area based on new wall configuration
+          const roomWithNewProps = updateRoomProperties(updatedRoom, newPoints, newWalls);
+          newRooms.set(roomId, roomWithNewProps);
         }
-      });
-
-      // Re-detect rooms to update centroids and areas
-      const detectedRooms = detectRooms(newPoints, newWalls, newRooms);
-      detectedRooms.forEach(room => {
-        newRooms.set(room.id, room);
       });
 
       // Add to history
