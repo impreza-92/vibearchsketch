@@ -10,6 +10,8 @@
 - ✅ Fixed event handler timing issue with initialization state pattern
 - ✅ Migrated to Pixi.js v8 pointer events (`pointermove`, `pointerdown`)
 - ✅ Drawing tool fully functional with proper event coordination
+- ✅ Changed to one-wall-at-a-time drawing (no auto-chaining)
+- ✅ Added smart point reuse - automatically snaps to existing points within 10px
 
 ---
 
@@ -27,9 +29,10 @@ A fully functional floorplan drawing application with interactive wall drawing, 
 
 2. **Core Functionality**
    - PixiCanvas component with WebGL rendering
-   - Interactive wall drawing with click-to-place
+   - Interactive wall drawing with click-to-place (2 clicks = 1 wall)
    - Real-time preview while drawing
-   - Wall chaining (continue from previous endpoint)
+   - Smart point reuse - automatically snaps to existing points within 10px
+   - One wall at a time (no auto-chaining)
    - Grid overlay with configurable spacing
    - Snap-to-grid functionality
 

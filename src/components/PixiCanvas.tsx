@@ -243,40 +243,60 @@ export const PixiCanvas = () => {
       }
 
       if (!tempStartPoint) {
-        // First click - set start point
-        const point: Point = {
-          id: generateId(),
-          x,
-          y,
-        };
-        setTempStartPoint(point);
-        dispatch({ type: 'ADD_POINT', point });
-        console.log('First point placed:', point);
-      } else {
-        // Second click - create wall
-        const endPoint: Point = {
-          id: generateId(),
-          x,
-          y,
-        };
-
-        // Check if clicking near existing point
-        let finalEndPoint = endPoint;
+        // First click - check if clicking near existing point or create new one
+        let startPoint: Point | undefined;
+        
+        // Look for existing point at this location
         for (const [, point] of state.points) {
-          if (isNearPoint(endPoint, point, 10)) {
-            finalEndPoint = point;
+          if (isNearPoint({ id: '', x, y }, point, 10)) {
+            startPoint = point;
+            break;
+          }
+        }
+        
+        // If no existing point found, create a new one
+        if (!startPoint) {
+          startPoint = {
+            id: generateId(),
+            x,
+            y,
+          };
+          dispatch({ type: 'ADD_POINT', point: startPoint });
+          console.log('First point placed:', startPoint);
+        } else {
+          console.log('Using existing point:', startPoint);
+        }
+        
+        setTempStartPoint(startPoint);
+      } else {
+        // Second click - create wall and reset
+        let endPoint: Point | undefined;
+
+        // Look for existing point at this location
+        for (const [, point] of state.points) {
+          if (isNearPoint({ id: '', x, y }, point, 10)) {
+            endPoint = point;
             break;
           }
         }
 
-        if (finalEndPoint.id === endPoint.id) {
+        // If no existing point found, create a new one
+        if (!endPoint) {
+          endPoint = {
+            id: generateId(),
+            x,
+            y,
+          };
           dispatch({ type: 'ADD_POINT', point: endPoint });
+          console.log('Second point placed:', endPoint);
+        } else {
+          console.log('Using existing point:', endPoint);
         }
 
         const wall: Wall = {
           id: generateId(),
           startPointId: tempStartPoint.id,
-          endPointId: finalEndPoint.id,
+          endPointId: endPoint.id,
           thickness: 4,
           style: 'solid',
         };
@@ -284,8 +304,8 @@ export const PixiCanvas = () => {
         dispatch({ type: 'ADD_WALL', wall });
         console.log('Wall created:', wall);
 
-        // Continue chain - end point becomes new start point
-        setTempStartPoint(finalEndPoint);
+        // Reset for next wall - don't continue chain
+        setTempStartPoint(null);
 
         // Clear preview
         if (previewGraphicsRef.current) {

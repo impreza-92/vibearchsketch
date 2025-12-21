@@ -47,8 +47,10 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 2. Click on the canvas to place the first point
 3. Move your mouse to see a preview of the wall
 4. Click again to place the second point and create the wall
-5. Continue clicking to chain walls together
-6. Press `Escape` or switch modes to finish
+5. The wall is complete - next click starts a new wall
+6. To connect walls, click on an existing endpoint when starting or ending a wall
+7. The app automatically snaps to existing points within 10 pixels
+8. Press `Escape` to cancel a wall in progress
 
 ### Options
 

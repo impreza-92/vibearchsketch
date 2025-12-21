@@ -17,15 +17,26 @@ Open the Simple Browser panel in VS Code or visit the URL in your web browser.
 3. **Click anywhere** on the dark canvas to place your first point
 4. **Move your mouse** - you'll see an orange preview line following your cursor
 5. **Click again** to place the second point and create your first wall!
+6. The wall is complete! **Click again** to start a new wall from scratch
 
 ### 2. Draw a Room
 
 Let's create a simple rectangular room:
 
-1. Keep clicking to place points in a rectangle shape
-2. The walls will **automatically chain** together
-3. After 4 clicks, you'll have a box!
-4. Press **Escape** or click another tool to finish
+1. Click to place the first point of your first wall
+2. Click to place the second point (first wall complete)
+3. Click on the endpoint of the previous wall to start your next wall connected to it
+4. Click to place the other end of the second wall
+5. Continue this pattern to create a rectangle
+6. When closing the shape, click on your starting point to connect the final wall
+
+### 3. Connecting Walls
+
+The app is smart about connecting walls:
+
+- **Snap to Existing Points**: When you click near an existing point (within 10 pixels), it will automatically use that point instead of creating a new one
+- **Build Connected Walls**: To connect walls, click on an existing endpoint when starting or ending a new wall
+- Each wall is drawn one at a time (2 clicks per wall)
 
 ### 3. Try Grid Snapping
 
@@ -46,9 +57,11 @@ Made a mistake? No problem!
 ## 🛠️ Available Tools
 
 ### ✏️ Draw Mode (Active)
-- Click to place points
-- Walls automatically connect
-- Press Escape to stop drawing
+- Click to place first point (or click on existing point to reuse it)
+- Click again to place second point and create wall
+- Each wall requires 2 clicks
+- To connect walls, click on existing endpoints
+- Automatically snaps to nearby points (within 10 pixels)
 
 ### 👆 Select Mode (Coming Soon)
 - Will let you click and select walls
@@ -92,14 +105,15 @@ Made a mistake? No problem!
 
 ## 🎯 Tips & Tricks
 
-1. **Chain Walls**: After placing a wall, the next wall starts at the end point automatically
-2. **Escape Key**: Press Escape to cancel current drawing
-3. **Visual Feedback**: 
+1. **Connect Walls**: To connect walls together, click on an existing endpoint when starting or ending a new wall
+2. **Point Reuse**: The app automatically detects when you click near an existing point (within 10 pixels) and reuses it
+3. **Escape Key**: Press Escape to cancel current drawing if you've only placed one point
+4. **Visual Feedback**: 
    - Orange = Preview (temporary)
    - White = Drawn walls
-   - Blue = Selected (future)
-4. **Grid Helps**: Keep snap-to-grid on for clean, aligned walls
-5. **Adjust Grid**: Use larger grid (20-30) for rough sketches, smaller (5-10) for details
+   - Small circles = Endpoints
+5. **Grid Helps**: Keep snap-to-grid on for clean, aligned walls
+6. **Adjust Grid**: Use larger grid (20-30) for rough sketches, smaller (5-10) for details
 
 ## 🐛 Troubleshooting
 

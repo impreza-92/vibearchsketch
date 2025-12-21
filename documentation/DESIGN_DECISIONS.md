@@ -80,25 +80,27 @@
 
 ### Drawing Interaction Model
 
-**Decision: Click-to-place points (like AutoCAD/SketchUp)**
+**Decision: Click-to-place individual walls (one wall at a time)**
 
 **Alternatives Considered:**
 1. Click-and-drag to draw walls
 2. Freehand drawing with auto-straightening
 3. Shape-based drawing (rectangles, then subdivide)
+4. Auto-chaining walls (previous behavior)
 
 **Rationale:**
-- **Precision**: Easier to place exact points than drag
-- **Chaining**: Natural to continue walls from previous endpoint
-- **Familiar**: Matches professional CAD software behavior
-- **Flexibility**: Works for both simple rectangles and complex shapes
+- **Clarity**: Each wall is a deliberate action (2 clicks = 1 wall)
+- **Control**: User decides when to connect walls vs. start new ones
+- **Flexibility**: Easy to draw disconnected walls without changing modes
+- **Familiar**: Similar to professional CAD software workflow
+- **Smart Snapping**: Automatically detects and reuses existing points within 10 pixels
 
 **Implementation:**
-- First click: Start point
+- First click: Start point (reuses existing point if within 10px)
 - Move mouse: Preview line
-- Second click: End point, create wall
-- Continue: Next wall starts at previous endpoint
-- Escape/mode change: Exit drawing mode
+- Second click: End point, create wall, reset for next wall
+- No automatic chaining - user must intentionally click on endpoints to connect walls
+- Visual feedback shows when near existing points
 
 ### Grid and Snapping
 
