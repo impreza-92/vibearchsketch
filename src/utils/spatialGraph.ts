@@ -116,6 +116,14 @@ export class SpatialGraph {
   }
 
   /**
+   * Restore an edge (for undo operations)
+   * Does NOT trigger surface detection
+   */
+  restoreEdge(edge: Edge): void {
+    this.edges.set(edge.id, edge);
+  }
+
+  /**
    * Remove an edge from the graph
    * Returns affected surfaces for undo purposes
    */
@@ -252,40 +260,6 @@ export class SpatialGraph {
    */
   hasSurface(surfaceId: string): boolean {
     return this.surfaces.has(surfaceId);
-  }
-
-  /**
-   * Create a surface from a cycle of vertex IDs
-   */
-  private createSurfaceFromCycle(cycle: string[]): Surface | null {
-    if (cycle.length < 3) return null;
-
-    // Get edges for this cycle
-    const edgeIds: string[] = [];
-    for (let i = 0; i < cycle.length; i++) {
-      const startId = cycle[i];
-      const endId = cycle[(i + 1) % cycle.length];
-      
-      const edge = this.findEdgeBetweenVertices(startId, endId);
-      if (!edge) return null; // Cycle is invalid if any edge doesn't exist
-      edgeIds.push(edge.id);
-    }
-
-    // Calculate centroid and area
-    const vertices = cycle.map(id => this.vertices.get(id)!);
-    const centroid = this.calculateCentroid(vertices);
-    const area = this.calculatePolygonArea(vertices);
-
-    // Filter out very small cycles (likely numerical artifacts)
-    if (area < 100) return null; // Minimum area threshold
-
-    return {
-      id: generateId(),
-      name: `Surface ${this.surfaces.size + 1}`,
-      edgeIds,
-      centroid,
-      area,
-    };
   }
 
   /**
@@ -458,6 +432,7 @@ export class SpatialGraph {
    * 3. Use robust cross-product based angle calculations
    * 4. Filter outer face by area
    */
+  // @ts-ignore - Used in legacy cycle detection, keeping for reference or future use
   private findMinimalCycles(): string[][] {
     // Step 1: Remove filaments (dead-end paths that don't form cycles)
     const workingEdges = this.getWorkingEdges();
@@ -717,59 +692,6 @@ export class SpatialGraph {
   }
 
   /**
-   * Detect all surfaces in the current graph using minimal cycle detection
-   * Rebuilds the surfaces map to ensure consistency
-   * Returns all detected surfaces
-   */
-  detectAllSurfaces(): Surface[] {
-    // Use the new minimal cycle detection algorithm
-    const detectedCycles = this.findMinimalCycles();
-    const nextSurfaces = new Map<string, Surface>();
-    const newSurfacesList: Surface[] = [];
-    
-    detectedCycles.forEach(cycle => {
-      const candidateSurface = this.createSurfaceFromCycle(cycle);
-      if (candidateSurface) {
-        // Check if this surface already exists in the OLD surfaces map (same edge set)
-        // We want to preserve IDs and names for existing surfaces
-        let matchedSurface: Surface | undefined;
-        
-        for (const existingSurface of this.surfaces.values()) {
-          if (existingSurface.edgeIds.length === candidateSurface.edgeIds.length) {
-            const existingEdgeSet = new Set(existingSurface.edgeIds);
-            if (candidateSurface.edgeIds.every(id => existingEdgeSet.has(id))) {
-              matchedSurface = existingSurface;
-              break;
-            }
-          }
-        }
-
-        if (matchedSurface) {
-          // Reuse ID and Name from the matching existing surface
-          candidateSurface.id = matchedSurface.id;
-          candidateSurface.name = matchedSurface.name;
-          // Preserve other properties if needed (e.g. fill color)
-          if (matchedSurface.fill) {
-            candidateSurface.fill = matchedSurface.fill;
-          }
-        } else {
-          // This is a new surface
-          newSurfacesList.push(candidateSurface);
-        }
-
-        // Add to the new surfaces map
-        nextSurfaces.set(candidateSurface.id, candidateSurface);
-      }
-    });
-
-    // Replace the old surfaces map with the new one
-    // This ensures that surfaces that are no longer valid (e.g. split by a new edge) are removed
-    this.surfaces = nextSurfaces;
-
-    return Array.from(nextSurfaces.values());
-  }
-
-  /**
    * Get surfaces that contain a specific edge
    */
   getSurfacesContainingEdge(edgeId: string): Surface[] {
@@ -912,6 +834,189 @@ export class SpatialGraph {
       }
     });
     return isolated;
+  }
+
+  /**
+   * Detect all surfaces (rooms) in the graph
+   * Replaces existing surfaces with newly detected ones
+   */
+  detectAllSurfaces(): Surface[] {
+    const detectedSurfaces = this.runPlanarFaceTraversal();
+    
+    // Preserve existing properties like fill color if possible
+    // This is a simple heuristic: if a new surface has roughly the same centroid as an old one, copy props
+    const newSurfaces = new Map<string, Surface>();
+    
+    detectedSurfaces.forEach(newSurface => {
+      // Try to find a matching old surface
+      for (const [_, oldSurface] of this.surfaces) {
+        const dx = newSurface.centroid.x - oldSurface.centroid.x;
+        const dy = newSurface.centroid.y - oldSurface.centroid.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < 10 && Math.abs(newSurface.area - oldSurface.area) < 100) {
+          if (oldSurface.fill) {
+            newSurface.fill = oldSurface.fill;
+          }
+          // Keep the old ID if we want stable IDs, but room detection usually regenerates IDs
+          // For now, we just copy visual properties
+          break;
+        }
+      }
+      newSurfaces.set(newSurface.id, newSurface);
+    });
+
+    this.surfaces = newSurfaces;
+    return Array.from(newSurfaces.values());
+  }
+
+  /**
+   * Internal algorithm to detect closed rooms (surfaces)
+   * Uses the planar face traversal algorithm (Right-Hand Rule)
+   */
+  private runPlanarFaceTraversal(): Surface[] {
+    const surfaces: Surface[] = [];
+    const visitedEdges = new Set<string>(); // Stores "u->v" keys
+
+    // 1. Build adjacency list with angles
+    // Map<vertexId, Array<{ neighborId: string, angle: number, edgeId: string }>>
+    const adjacency = new Map<string, Array<{ neighborId: string; angle: number; edgeId: string }>>();
+
+    // Initialize adjacency for all vertices
+    this.vertices.forEach((v) => {
+      adjacency.set(v.id, []);
+    });
+
+    // Populate adjacency
+    this.edges.forEach((edge) => {
+      const v1 = this.vertices.get(edge.startVertexId);
+      const v2 = this.vertices.get(edge.endVertexId);
+
+      if (v1 && v2) {
+        // Edge v1 -> v2
+        const angle1 = Math.atan2(v2.y - v1.y, v2.x - v1.x);
+        adjacency.get(v1.id)?.push({ neighborId: v2.id, angle: angle1, edgeId: edge.id });
+
+        // Edge v2 -> v1
+        const angle2 = Math.atan2(v1.y - v2.y, v1.x - v2.x);
+        adjacency.get(v2.id)?.push({ neighborId: v1.id, angle: angle2, edgeId: edge.id });
+      }
+    });
+
+    // Sort neighbors by angle for each vertex
+    adjacency.forEach((neighbors) => {
+      neighbors.sort((a, b) => a.angle - b.angle);
+    });
+
+    // 2. Traverse graph to find faces
+    this.edges.forEach((edge) => {
+      // Try traversing from both directions
+      traverse(edge.startVertexId, edge.endVertexId, edge.id, this.vertices);
+      traverse(edge.endVertexId, edge.startVertexId, edge.id, this.vertices);
+    });
+
+    function traverse(startId: string, nextId: string, firstEdgeId: string, vertices: Map<string, Vertex>) {
+      const key = `${startId}->${nextId}`;
+      if (visitedEdges.has(key)) return;
+
+      const path: string[] = [startId]; // Vertex IDs
+      const edgeIds: string[] = [firstEdgeId];
+      
+      let currId = nextId;
+      let prevId = startId;
+
+      visitedEdges.add(key);
+
+      while (currId !== startId) {
+        path.push(currId);
+
+        const neighbors = adjacency.get(currId);
+        if (!neighbors || neighbors.length === 0) return; // Dead end
+
+        const incomingIndex = neighbors.findIndex(n => n.neighborId === prevId);
+        if (incomingIndex === -1) return; // Should not happen
+
+        // Select the next edge in the sorted list (wrapping around)
+        // To find the smallest face on the "left" (CCW traversal), we take the previous entry?
+        // Or next?
+        // In Y-down (screen), angles increase CW.
+        // If we want to walk around the inside of a room in CW order (standard for screen coords?),
+        // we should pick the neighbor that creates the sharpest "right" turn.
+        // This corresponds to the neighbor immediately *before* the incoming edge in the sorted list?
+        
+        // Let's try taking the *previous* neighbor in the list (index - 1).
+        let nextIndex = incomingIndex - 1;
+        if (nextIndex < 0) nextIndex = neighbors.length - 1;
+
+        const nextNeighbor = neighbors[nextIndex];
+        
+        // Mark as visited
+        const nextKey = `${currId}->${nextNeighbor.neighborId}`;
+        if (visitedEdges.has(nextKey)) {
+          // We ran into a visited edge but haven't closed the loop to startId.
+          // This implies a figure-8 or merging into another loop.
+          // Abort this path.
+          return;
+        }
+        visitedEdges.add(nextKey);
+
+        edgeIds.push(nextNeighbor.edgeId);
+        
+        prevId = currId;
+        currId = nextNeighbor.neighborId;
+      }
+
+      // Loop closed
+      // Calculate area to determine if it's a valid room (and not the outer face)
+      // Use Shoelace formula
+      let area = 0;
+      for (let i = 0; i < path.length; i++) {
+        const v1 = vertices.get(path[i]);
+        const v2 = vertices.get(path[(i + 1) % path.length]);
+        if (v1 && v2) {
+          area += (v1.x * v2.y) - (v2.x * v1.y);
+        }
+      }
+      area = area / 2;
+
+      // In screen coords (Y-down):
+      // CW winding (standard room) -> Positive Area?
+      // Let's check: (0,0) -> (10,0) -> (10,10) -> (0,10) -> (0,0)
+      // 0*0 - 10*0 = 0
+      // 10*10 - 10*0 = 100
+      // 10*10 - 0*10 = 100
+      // 0*0 - 0*10 = 0
+      // Sum = 200 / 2 = 100. Positive.
+      
+      // So positive area means CW winding.
+      // If we picked the "rightmost" turn (index - 1), we should be tracing CW faces (interiors).
+      // The outer face would be traced CCW and have negative area.
+      
+      if (area > 100) { // Minimum area threshold
+        // Calculate centroid
+        let cx = 0;
+        let cy = 0;
+        for (let i = 0; i < path.length; i++) {
+          const v = vertices.get(path[i]);
+          if (v) {
+            cx += v.x;
+            cy += v.y;
+          }
+        }
+        cx /= path.length;
+        cy /= path.length;
+
+        surfaces.push({
+          id: generateId(),
+          edgeIds: edgeIds,
+          area: area,
+          name: `Room ${surfaces.length + 1}`,
+          centroid: { x: cx, y: cy }
+        });
+      }
+    }
+
+    return surfaces;
   }
 
   /**

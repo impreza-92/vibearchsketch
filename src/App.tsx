@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
-import { SpatialProvider, useSpatial } from './context/SpatialContext';
+import { useSpatialStore } from './store/useSpatialStore';
 import { PixiCanvas } from './components/PixiCanvas';
 import { Toolbar } from './components/Toolbar';
+import { StatsPanel } from './components/StatsPanel';
 import './App.css';
 
-function AppContent() {
-  const { dispatch } = useSpatial();
+function App() {
+  const undo = useSpatialStore((state) => state.undo);
+  const redo = useSpatialStore((state) => state.redo);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -13,7 +15,7 @@ function AppContent() {
       // Undo: Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        dispatch({ type: 'UNDO' });
+        undo();
       }
       // Redo: Ctrl+Y (Windows/Linux) or Cmd+Shift+Z (Mac)
       else if (
@@ -21,29 +23,22 @@ function AppContent() {
         ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')
       ) {
         e.preventDefault();
-        dispatch({ type: 'REDO' });
+        redo();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dispatch]);
+  }, [undo, redo]);
 
   return (
     <div className="app">
       <Toolbar />
       <main className="canvas-container">
         <PixiCanvas />
+        <StatsPanel />
       </main>
     </div>
-  );
-}
-
-function App() {
-  return (
-    <SpatialProvider>
-      <AppContent />
-    </SpatialProvider>
   );
 }
 

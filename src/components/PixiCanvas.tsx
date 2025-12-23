@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
-import { useSpatial } from '../context/SpatialContext';
+import { useSpatialStore } from '../store/useSpatialStore';
 import type { Vertex, Edge, Surface } from '../types/spatial';
 import { snapToGrid, generateId, isNearVertex, isVertexOnLineSegment } from '../utils/geometry';
 import { formatEdgeLength } from '../utils/measurements';
+import { DrawEdgeCommand, SplitEdgeCommand } from '../utils/commands';
 
 export const PixiCanvas = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -14,14 +15,22 @@ export const PixiCanvas = () => {
   const measurementContainerRef = useRef<PIXI.Container | null>(null);
   const surfaceContainerRef = useRef<PIXI.Container | null>(null);
 
-  const { state, dispatch } = useSpatial();
+  const graph = useSpatialStore((state) => state.graph);
+  const selectedIds = useSpatialStore((state) => state.selectedIds);
+  const mode = useSpatialStore((state) => state.mode);
+  const snapToGridEnabled = useSpatialStore((state) => state.snapToGrid);
+  const gridSize = useSpatialStore((state) => state.gridSize);
+  const measurement = useSpatialStore((state) => state.measurement);
+  const showMeasurements = measurement.showMeasurements;
+  const dispatch = useSpatialStore((state) => state.dispatch);
+
   const [tempStartVertex, setTempStartVertex] = useState<Vertex | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({
     x: 0,
     y: 0,
   });
   const [isInitialized, setIsInitialized] = useState(false);
-
+  
   // Initialize Pixi.js
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -30,14 +39,12 @@ export const PixiCanvas = () => {
     const app = new PIXI.Application();
 
     (async () => {
-      // Get container dimensions
       const container = canvasRef.current;
       if (!container) return;
 
       const width = container.clientWidth;
       const height = container.clientHeight;
 
-      // Initialize the application
       await app.init({
         width,
         height,
@@ -52,7 +59,6 @@ export const PixiCanvas = () => {
       appRef.current = app;
       canvasRef.current.appendChild(app.canvas);
 
-      // Create graphics layers
       const gridGraphics = new PIXI.Graphics();
       gridGraphicsRef.current = gridGraphics;
       app.stage.addChild(gridGraphics);
@@ -65,32 +71,22 @@ export const PixiCanvas = () => {
       previewGraphicsRef.current = previewGraphics;
       app.stage.addChild(previewGraphics);
 
-      // Create measurement container for text labels
       const measurementContainer = new PIXI.Container();
       measurementContainerRef.current = measurementContainer;
       app.stage.addChild(measurementContainer);
 
-      // Create surface container for surface labels (on top of everything)
       const surfaceContainer = new PIXI.Container();
       surfaceContainerRef.current = surfaceContainer;
       app.stage.addChild(surfaceContainer);
 
-      // Enable interaction on stage
       app.stage.eventMode = 'static';
       app.stage.hitArea = app.screen;
 
-      // Debug: Test if events work
-      console.log('Canvas initialized, stage eventMode:', app.stage.eventMode);
-      console.log('Stage hitArea:', app.stage.hitArea);
-
-      // Draw initial grid
-      drawGrid(gridGraphics, app.screen.width, app.screen.height, state.gridSize);
+      drawGrid(gridGraphics, app.screen.width, app.screen.height, gridSize);
       
-      // Mark as initialized so event handlers can attach
       setIsInitialized(true);
     })();
 
-    // Handle resize
     const handleResize = () => {
       if (appRef.current?.renderer && canvasRef.current) {
         const width = canvasRef.current.clientWidth;
@@ -102,7 +98,7 @@ export const PixiCanvas = () => {
             gridGraphicsRef.current,
             appRef.current.screen.width,
             appRef.current.screen.height,
-            state.gridSize
+            gridSize
           );
         }
       }
@@ -110,7 +106,6 @@ export const PixiCanvas = () => {
 
     window.addEventListener('resize', handleResize);
 
-    // Cleanup
     return () => {
       mounted = false;
       window.removeEventListener('resize', handleResize);
@@ -126,7 +121,6 @@ export const PixiCanvas = () => {
     };
   }, []);
 
-  // Draw grid
   const drawGrid = (
     graphics: PIXI.Graphics,
     width: number,
@@ -134,8 +128,6 @@ export const PixiCanvas = () => {
     gridSize: number
   ) => {
     graphics.clear();
-
-    // Minor grid lines
     for (let x = 0; x <= width; x += gridSize) {
       graphics.moveTo(x, 0).lineTo(x, height);
     }
@@ -143,8 +135,6 @@ export const PixiCanvas = () => {
       graphics.moveTo(0, y).lineTo(width, y);
     }
     graphics.stroke({ width: 1, color: 0x2a2a2a, alpha: 1 });
-
-    // Major grid lines (every 5 grid units)
     for (let x = 0; x <= width; x += gridSize * 5) {
       graphics.moveTo(x, 0).lineTo(x, height);
     }
@@ -154,7 +144,6 @@ export const PixiCanvas = () => {
     graphics.stroke({ width: 1, color: 0x3a3a3a, alpha: 1 });
   };
 
-  // Render edges
   useEffect(() => {
     if (!edgesGraphicsRef.current || !measurementContainerRef.current) return;
 
@@ -162,37 +151,32 @@ export const PixiCanvas = () => {
     const measurementContainer = measurementContainerRef.current;
     
     graphics.clear();
-    // Clear previous measurement labels
     measurementContainer.removeChildren();
 
-    // Draw all edges
-    state.edges.forEach((edge: Edge) => {
-      const startVertex = state.vertices.get(edge.startVertexId);
-      const endVertex = state.vertices.get(edge.endVertexId);
+    graph.getEdges().forEach((edge: Edge) => {
+      const startVertex = graph.getVertices().get(edge.startVertexId);
+      const endVertex = graph.getVertices().get(edge.endVertexId);
 
       if (startVertex && endVertex) {
-        const isSelected = state.selectedIds.has(edge.id);
+        const isSelected = selectedIds.has(edge.id);
         const color = isSelected ? 0x0078d4 : 0xffffff;
 
-        // Draw edge line
         graphics
           .moveTo(startVertex.x, startVertex.y)
           .lineTo(endVertex.x, endVertex.y)
           .stroke({ width: edge.thickness, color, alpha: 1 });
 
-        // Draw vertices
         graphics
           .circle(startVertex.x, startVertex.y, 4)
           .fill(color)
           .circle(endVertex.x, endVertex.y, 4)
           .fill(color);
 
-        // Add measurement label if enabled
-        if (state.measurement.showMeasurements) {
+        if (showMeasurements) {
           const measurementText = formatEdgeLength(
             startVertex,
             endVertex,
-            state.measurement
+            measurement
           );
 
           const text = new PIXI.Text({
@@ -205,19 +189,13 @@ export const PixiCanvas = () => {
             },
           });
 
-          // Position text at midpoint of edge
           const midX = (startVertex.x + endVertex.x) / 2;
           const midY = (startVertex.y + endVertex.y) / 2;
-          
-          // Calculate rotation to align with edge
-          const angle = Math.atan2(endVertex.y - startVertex.y, endVertex.x - startVertex.x);
           
           text.anchor.set(0.5, 0.5);
           text.x = midX;
           text.y = midY;
-          text.rotation = angle;
 
-          // Add background for better readability
           const bg = new PIXI.Graphics();
           bg.rect(
             -text.width / 2 - 2,
@@ -230,11 +208,9 @@ export const PixiCanvas = () => {
           const label = new PIXI.Container();
           label.x = midX;
           label.y = midY;
-          label.rotation = angle;
           label.addChild(bg);
           label.addChild(text);
           
-          // Reset text position relative to container
           text.x = 0;
           text.y = 0;
 
@@ -242,25 +218,26 @@ export const PixiCanvas = () => {
         }
       }
     });
-  }, [state.edges, state.vertices, state.selectedIds, state.measurement]);
+  }, [graph, selectedIds, showMeasurements]);
 
-  // Render surfaces
   useEffect(() => {
     if (!surfaceContainerRef.current) return;
 
     const surfaceContainer = surfaceContainerRef.current;
     surfaceContainer.removeChildren();
 
-    // Draw all surfaces
-    state.surfaces.forEach((surface: Surface) => {
-      // Create surface label
+    graph.getSurfaces().forEach((surface: Surface) => {
+      const pixelsPerMm = measurement.pixelsPerMm;
+      const areaM2 = surface.area / (pixelsPerMm * pixelsPerMm) / 1000000;
+
       const text = new PIXI.Text({
-        text: surface.name,
+        text: `${surface.name}\n${areaM2.toFixed(2)} m²`,
         style: {
           fontFamily: 'Arial, sans-serif',
           fontSize: 16,
           fill: 0x88ccff,
           fontWeight: 'bold',
+          align: 'center',
         },
       });
 
@@ -268,7 +245,6 @@ export const PixiCanvas = () => {
       text.x = surface.centroid.x;
       text.y = surface.centroid.y;
 
-      // Add semi-transparent background
       const bg = new PIXI.Graphics();
       bg.rect(
         surface.centroid.x - text.width / 2 - 4,
@@ -281,9 +257,8 @@ export const PixiCanvas = () => {
       surfaceContainer.addChild(bg);
       surfaceContainer.addChild(text);
     });
-  }, [state.surfaces]);
+  }, [graph, measurement]);
 
-  // Handle mouse move
   useEffect(() => {
     if (!isInitialized || !appRef.current || !previewGraphicsRef.current) return;
 
@@ -291,38 +266,30 @@ export const PixiCanvas = () => {
     const previewGraphics = previewGraphicsRef.current;
 
     const handleMouseMove = (event: PIXI.FederatedPointerEvent) => {
-      console.log('Mouse move event triggered:', event.global);
       let { x, y } = event.global;
 
-      // Snap to grid if enabled
-      if (state.snapToGrid) {
-        const snapped = snapToGrid({ id: '', x, y }, state.gridSize);
+      if (snapToGridEnabled) {
+        const snapped = snapToGrid({ id: '', x, y }, gridSize);
         x = snapped.x;
         y = snapped.y;
       }
 
       setMousePos({ x, y });
 
-      // Draw preview in draw mode
-      if (state.mode === 'draw' && tempStartVertex) {
+      if (mode === 'draw' && tempStartVertex) {
         previewGraphics.clear();
-        
-        // Draw preview line
         previewGraphics
           .moveTo(tempStartVertex.x, tempStartVertex.y)
           .lineTo(x, y)
           .stroke({ width: 2, color: 0xffaa00, alpha: 1 });
 
-        // Draw preview vertex
         previewGraphics
           .circle(x, y, 4)
           .fill(0xffaa00);
       }
     };
 
-    // Use pointermove (Pixi v8 recommended)
     if (app.stage) {
-      console.log('Attaching pointermove handler');
       app.stage.on('pointermove', handleMouseMove);
     }
 
@@ -331,59 +298,64 @@ export const PixiCanvas = () => {
         app.stage.off('pointermove', handleMouseMove);
       }
     };
-  }, [isInitialized, state.mode, state.snapToGrid, state.gridSize, tempStartVertex]);
+  }, [isInitialized, mode, snapToGridEnabled, gridSize, tempStartVertex]);
 
-  // Handle click
   useEffect(() => {
     if (!isInitialized || !appRef.current) return;
 
     const app = appRef.current;
 
     const handleClick = () => {
-      console.log('Click event triggered! Mode:', state.mode, 'MousePos:', mousePos);
-      if (state.mode !== 'draw') return;
+      if (mode !== 'draw') return;
 
       let { x, y } = mousePos;
 
-      // Snap to grid if enabled
-      if (state.snapToGrid) {
-        const snapped = snapToGrid({ id: '', x, y }, state.gridSize);
+      if (snapToGridEnabled) {
+        const snapped = snapToGrid({ id: '', x, y }, gridSize);
         x = snapped.x;
         y = snapped.y;
       }
 
       if (!tempStartVertex) {
-        // === FIRST CLICK: Determine start vertex ===
-        // Handles scenarios 1 & 2 (new start) and 3 & 4 (existing start) and 5 (split edge)
         let startVertex: Vertex | undefined;
         
-        // First, search for existing vertex within 10px radius
-        for (const [, vertex] of state.vertices) {
+        for (const [, vertex] of graph.getVertices()) {
           if (isNearVertex({ id: '', x, y }, vertex, 10)) {
             startVertex = vertex;
             break;
           }
         }
         
-        // If no nearby vertex, check if clicking on an existing edge (Scenario 5)
         if (!startVertex) {
-          for (const [edgeId, edge] of state.edges) {
-            const startEdgeVertex = state.vertices.get(edge.startVertexId);
-            const endEdgeVertex = state.vertices.get(edge.endVertexId);
+          for (const [edgeId, edge] of graph.getEdges()) {
+            const startEdgeVertex = graph.getVertices().get(edge.startVertexId);
+            const endEdgeVertex = graph.getVertices().get(edge.endVertexId);
             
             if (startEdgeVertex && endEdgeVertex) {
               if (isVertexOnLineSegment({ id: '', x, y }, startEdgeVertex, endEdgeVertex, 8)) {
-                // Scenario 5: Split the edge at this vertex
                 const splitVertex: Vertex = {
                   id: generateId(),
                   x,
                   y,
                 };
                 
-                dispatch({ type: 'SPLIT_EDGE', edgeId, splitVertex });
-                console.log('Edge split at vertex:', splitVertex);
+                const edge1: Edge = {
+                  id: generateId(),
+                  startVertexId: edge.startVertexId,
+                  endVertexId: splitVertex.id,
+                  thickness: edge.thickness,
+                  style: edge.style,
+                };
                 
-                // Use the split vertex as the start vertex
+                const edge2: Edge = {
+                  id: generateId(),
+                  startVertexId: splitVertex.id,
+                  endVertexId: edge.endVertexId,
+                  thickness: edge.thickness,
+                  style: edge.style,
+                };
+
+                dispatch(new SplitEdgeCommand(edgeId, splitVertex, edge1, edge2));
                 startVertex = splitVertex;
                 break;
               }
@@ -391,57 +363,55 @@ export const PixiCanvas = () => {
           }
         }
         
-        // Only create new vertex if none exists nearby and not on edge
         if (!startVertex) {
-          // Scenarios 1 & 3: Create new start vertex
           startVertex = {
             id: generateId(),
             x,
             y,
           };
-          console.log('New start vertex created (not dispatched yet):', startVertex);
-        } else if (!state.vertices.has(startVertex.id)) {
-          // Edge case: split vertex needs to be waited for (it's in the dispatch queue)
-          // The split vertex will be available in the next render
-          console.log('Using split vertex as start:', startVertex);
-        } else {
-          // Scenarios 2 & 4: Reuse existing start vertex
-          console.log('Reusing existing start vertex:', startVertex);
         }
         
         setTempStartVertex(startVertex);
       } else {
-        // === SECOND CLICK: Determine end vertex and create edge ===
-        // Handles scenarios 1 & 2 (new end) and 3 & 4 (existing end) and 5 (split edge)
         let endVertex: Vertex | undefined;
 
-        // First, search for existing vertex within 10px radius
-        for (const [, vertex] of state.vertices) {
+        for (const [, vertex] of graph.getVertices()) {
           if (isNearVertex({ id: '', x, y }, vertex, 10)) {
             endVertex = vertex;
             break;
           }
         }
 
-        // If no nearby vertex, check if clicking on an existing edge (Scenario 5)
         if (!endVertex) {
-          for (const [edgeId, edge] of state.edges) {
-            const startEdgeVertex = state.vertices.get(edge.startVertexId);
-            const endEdgeVertex = state.vertices.get(edge.endVertexId);
+          for (const [edgeId, edge] of graph.getEdges()) {
+            const startEdgeVertex = graph.getVertices().get(edge.startVertexId);
+            const endEdgeVertex = graph.getVertices().get(edge.endVertexId);
             
             if (startEdgeVertex && endEdgeVertex) {
               if (isVertexOnLineSegment({ id: '', x, y }, startEdgeVertex, endEdgeVertex, 8)) {
-                // Scenario 5: Split the edge at this vertex
                 const splitVertex: Vertex = {
                   id: generateId(),
                   x,
                   y,
                 };
                 
-                dispatch({ type: 'SPLIT_EDGE', edgeId, splitVertex });
-                console.log('Edge split at vertex:', splitVertex);
+                const edge1: Edge = {
+                  id: generateId(),
+                  startVertexId: edge.startVertexId,
+                  endVertexId: splitVertex.id,
+                  thickness: edge.thickness,
+                  style: edge.style,
+                };
                 
-                // Use the split vertex as the end vertex
+                const edge2: Edge = {
+                  id: generateId(),
+                  startVertexId: splitVertex.id,
+                  endVertexId: edge.endVertexId,
+                  thickness: edge.thickness,
+                  style: edge.style,
+                };
+
+                dispatch(new SplitEdgeCommand(edgeId, splitVertex, edge1, edge2));
                 endVertex = splitVertex;
                 break;
               }
@@ -449,24 +419,14 @@ export const PixiCanvas = () => {
           }
         }
 
-        // Only create new vertex if none exists nearby and not on edge
         if (!endVertex) {
-          // Scenarios 1 & 2: Create new end vertex
           endVertex = {
             id: generateId(),
             x,
             y,
           };
-          console.log('New end vertex created (not dispatched yet):', endVertex);
-        } else if (!state.vertices.has(endVertex.id)) {
-          // Edge case: split vertex needs to be waited for (it's in the dispatch queue)
-          console.log('Using split vertex as end:', endVertex);
-        } else {
-          // Scenarios 3 & 4: Reuse existing end vertex
-          console.log('Reusing existing end vertex:', endVertex);
         }
 
-        // Create edge connecting the two vertices (all 5 scenarios)
         const edge: Edge = {
           id: generateId(),
           startVertexId: tempStartVertex.id,
@@ -475,30 +435,24 @@ export const PixiCanvas = () => {
           style: 'solid',
         };
 
-        // Dispatch atomic DRAW_EDGE command with all information
-        dispatch({
-          type: 'DRAW_EDGE',
-          startVertex: tempStartVertex,
-          endVertex: endVertex,
-          edge,
-          startVertexExists: state.vertices.has(tempStartVertex.id),
-          endVertexExists: state.vertices.has(endVertex.id),
-        });
-        console.log('Edge drawn with atomic command:', edge);
+        dispatch(
+          new DrawEdgeCommand(
+            tempStartVertex,
+            endVertex,
+            edge,
+            graph.getVertices().has(tempStartVertex.id),
+            graph.getVertices().has(endVertex.id)
+          )
+        );
 
-        // Reset for next edge - don't continue chain
         setTempStartVertex(null);
-
-        // Clear preview
         if (previewGraphicsRef.current) {
           previewGraphicsRef.current.clear();
         }
       }
     };
 
-    // Use pointerdown (Pixi v8 recommended)
     if (app.stage) {
-      console.log('Attaching pointerdown handler');
       app.stage.on('pointerdown', handleClick);
     }
 
@@ -507,21 +461,10 @@ export const PixiCanvas = () => {
         app.stage.off('pointerdown', handleClick);
       }
     };
-  }, [
-    isInitialized,
-    state.mode,
-    state.snapToGrid,
-    state.gridSize,
-    state.vertices,
-    state.edges,
-    tempStartVertex,
-    mousePos,
-    dispatch,
-  ]);
+  }, [isInitialized, mode, snapToGridEnabled, gridSize, graph, tempStartVertex, mousePos, dispatch]);
 
-  // Cancel drawing on mode change or Escape
   useEffect(() => {
-    if (state.mode !== 'draw') {
+    if (mode !== 'draw') {
       setTempStartVertex(null);
       if (previewGraphicsRef.current) {
         previewGraphicsRef.current.clear();
@@ -539,7 +482,7 @@ export const PixiCanvas = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.mode]);
+  }, [mode]);
 
   return (
     <div
