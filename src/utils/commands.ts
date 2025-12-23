@@ -228,7 +228,7 @@ export class RemoveEdgeCommand implements Command {
     const newGraph = state.graph.clone();
     
     // Restore the edge (without auto surface detection)
-    newGraph.getEdges().set(this.edgeId, this.removedEdge);
+    newGraph.restoreEdge(this.removedEdge);
     
     // Restore affected surfaces
     this.affectedSurfaces.forEach((surface) => {
@@ -308,7 +308,7 @@ export class SplitEdgeCommand implements Command {
     newGraph.removeVertex(this.splitVertex.id);
 
     // Restore the original edge
-    newGraph.getEdges().set(this.edgeId, this.originalEdge);
+    newGraph.restoreEdge(this.originalEdge);
 
     // Restore original surfaces
     this.affectedSurfaces.forEach((surface) => {
@@ -675,5 +675,139 @@ export class CommandHistory {
   getRedoDescription(): string | null {
     if (!this.canRedo()) return null;
     return this.history[this.currentIndex + 1].getDescription();
+  }
+}
+
+
+/**
+ * Command Manager
+ * Handles execution, undo, and redo of commands
+ */
+/**
+ * Command to clear the canvas
+ */
+export class ClearCanvasCommand implements Command {
+  private previousVertices: Map<string, Vertex>;
+  private previousEdges: Map<string, Edge>;
+  private previousSurfaces: Map<string, Surface>;
+
+  constructor() {
+    this.previousVertices = new Map();
+    this.previousEdges = new Map();
+    this.previousSurfaces = new Map();
+  }
+
+  execute(state: CommandState): CommandState {
+    // Store current state for undo
+    this.previousVertices = state.graph.getVertices();
+    this.previousEdges = state.graph.getEdges();
+    this.previousSurfaces = state.graph.getSurfaces();
+
+    const newGraph = new SpatialGraph(); // Create empty graph
+    
+    return {
+      ...state,
+      graph: newGraph,
+      selectedIds: new Set(),
+    };
+  }
+
+  undo(state: CommandState): CommandState {
+    const newGraph = new SpatialGraph(
+      this.previousVertices,
+      this.previousEdges,
+      this.previousSurfaces
+    );
+
+    return {
+      ...state,
+      graph: newGraph,
+      selectedIds: new Set(),
+    };
+  }
+
+  getDescription(): string {
+    return 'Clear Canvas';
+  }
+}
+
+export class CommandManager {
+  private history: Command[] = [];
+  private historyIndex: number = -1;
+  private maxHistory: number = 50;
+
+  /**
+   * Execute a command and add it to history
+   */
+  execute(command: Command, state: CommandState): CommandState {
+    // Execute the command
+    const newState = command.execute(state);
+
+    // If we're not at the end of history, truncate future commands
+    if (this.historyIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.historyIndex + 1);
+    }
+
+    // Add command to history
+    this.history.push(command);
+    this.historyIndex++;
+
+    // Limit history size
+    if (this.history.length > this.maxHistory) {
+      this.history.shift();
+      this.historyIndex--;
+    }
+
+    return newState;
+  }
+
+  /**
+   * Undo the last command
+   */
+  undo(state: CommandState): CommandState {
+    if (!this.canUndo()) {
+      return state;
+    }
+
+    const command = this.history[this.historyIndex];
+    const newState = command.undo(state);
+    this.historyIndex--;
+
+    return newState;
+  }
+
+  /**
+   * Redo the next command
+   */
+  redo(state: CommandState): CommandState {
+    if (!this.canRedo()) {
+      return state;
+    }
+
+    this.historyIndex++;
+    const command = this.history[this.historyIndex];
+    return command.execute(state);
+  }
+
+  /**
+   * Check if undo is available
+   */
+  canUndo(): boolean {
+    return this.historyIndex >= 0;
+  }
+
+  /**
+   * Check if redo is available
+   */
+  canRedo(): boolean {
+    return this.historyIndex < this.history.length - 1;
+  }
+
+  /**
+   * Clear history
+   */
+  clear(): void {
+    this.history = [];
+    this.historyIndex = -1;
   }
 }

@@ -1,164 +1,127 @@
-import type { DrawingMode } from '../types/spatial';
-import { useSpatial } from '../context/SpatialContext';
+import React from 'react';
+import { useSpatialStore } from '../store/useSpatialStore';
+import { generateJSON, generateCSV } from '../utils/export';
+import { ClearCanvasCommand } from '../utils/commands';
 import './Toolbar.css';
 
-export const Toolbar = () => {
-  const { state, dispatch, canUndo, canRedo, getUndoDescription, getRedoDescription } = useSpatial();
-
-  const setMode = (mode: DrawingMode) => {
-    dispatch({ type: 'SET_MODE', mode });
-  };
-
-  const toggleSnapToGrid = () => {
-    dispatch({ type: 'SET_SNAP_TO_GRID', enabled: !state.snapToGrid });
-  };
-
-  const handleUndo = () => {
-    dispatch({ type: 'UNDO' });
-  };
-
-  const handleRedo = () => {
-    dispatch({ type: 'REDO' });
-  };
+export const Toolbar: React.FC = () => {
+  const mode = useSpatialStore((state) => state.mode);
+  const snapToGrid = useSpatialStore((state) => state.snapToGrid);
+  const setMode = useSpatialStore((state) => state.setMode);
+  const setSnapToGrid = useSpatialStore((state) => state.setSnapToGrid);
+  const undo = useSpatialStore((state) => state.undo);
+  const redo = useSpatialStore((state) => state.redo);
+  const dispatch = useSpatialStore((state) => state.dispatch);
 
   const handleClear = () => {
-    if (confirm('Clear all edges? This action can be undone.')) {
-      dispatch({ type: 'CLEAR_ALL' });
+    if (window.confirm('Are you sure you want to clear the canvas?')) {
+      dispatch(new ClearCanvasCommand());
     }
+  };
+
+  const handleExportJSON = () => {
+    const graph = useSpatialStore.getState().graph;
+    const json = generateJSON(graph);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'floorplan.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    const graph = useSpatialStore.getState().graph;
+    const measurement = useSpatialStore.getState().measurement;
+    const { walls, rooms } = generateCSV(graph, measurement.pixelsPerMm);
+    
+    // Download Walls
+    const blobWalls = new Blob([walls], { type: 'text/csv' });
+    const urlWalls = URL.createObjectURL(blobWalls);
+    const aWalls = document.createElement('a');
+    aWalls.href = urlWalls;
+    aWalls.download = 'walls.csv';
+    aWalls.click();
+    URL.revokeObjectURL(urlWalls);
+
+    // Download Rooms
+    const blobRooms = new Blob([rooms], { type: 'text/csv' });
+    const urlRooms = URL.createObjectURL(blobRooms);
+    const aRooms = document.createElement('a');
+    aRooms.href = urlRooms;
+    aRooms.download = 'rooms.csv';
+    aRooms.click();
+    URL.revokeObjectURL(urlRooms);
   };
 
   return (
     <div className="toolbar">
-      <div className="toolbar-section">
-        <h3>Tools</h3>
+      <div className="toolbar-group">
         <button
-          className={state.mode === 'draw' ? 'active' : ''}
+          className={mode === 'draw' ? 'active' : ''}
           onClick={() => setMode('draw')}
-          title="Draw edges (D)"
+          title="Draw Wall (W)"
         >
-          ✏️ Draw
+          Draw
         </button>
         <button
-          className={state.mode === 'select' ? 'active' : ''}
+          className={mode === 'select' ? 'active' : ''}
           onClick={() => setMode('select')}
-          title="Select and edit (S)"
+          title="Select (V)"
         >
-          👆 Select
+          Select
         </button>
         <button
-          className={state.mode === 'pan' ? 'active' : ''}
-          onClick={() => setMode('pan')}
-          title="Pan view (Space)"
-        >
-          ✋ Pan
-        </button>
-        <button
-          className={state.mode === 'erase' ? 'active' : ''}
+          className={mode === 'erase' ? 'active' : ''}
           onClick={() => setMode('erase')}
-          title="Erase edges (E)"
+          title="Erase (E)"
         >
-          🗑️ Erase
+          Erase
         </button>
       </div>
 
-      <div className="toolbar-section">
-        <h3>Options</h3>
+      <div className="toolbar-divider" />
+
+      <div className="toolbar-group">
+        <button onClick={undo} title="Undo (Ctrl+Z)">
+          Undo
+        </button>
+        <button onClick={redo} title="Redo (Ctrl+Y)">
+          Redo
+        </button>
+      </div>
+
+      <div className="toolbar-divider" />
+
+      <div className="toolbar-group">
         <label className="checkbox-label">
           <input
             type="checkbox"
-            checked={state.snapToGrid}
-            onChange={toggleSnapToGrid}
+            checked={snapToGrid}
+            onChange={(e) => setSnapToGrid(e.target.checked)}
           />
           Snap to Grid
         </label>
-        <label className="input-label">
-          Grid Size:
-          <input
-            type="number"
-            value={state.gridSize}
-            onChange={(e) =>
-              dispatch({
-                type: 'SET_GRID_SIZE',
-                size: parseInt(e.target.value) || 10,
-              })
-            }
-            min="5"
-            max="50"
-            step="5"
-          />
-        </label>
       </div>
 
-      <div className="toolbar-section">
-        <h3>Measurements</h3>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={state.measurement.showMeasurements}
-            onChange={(e) =>
-              dispatch({
-                type: 'SET_SHOW_MEASUREMENTS',
-                show: e.target.checked,
-              })
-            }
-          />
-          Show Lengths
-        </label>
-        <label className="input-label">
-          Scale:
-          <input
-            type="number"
-            value={state.measurement.pixelsPerMm}
-            onChange={(e) =>
-              dispatch({
-                type: 'SET_PIXELS_PER_MM',
-                value: parseFloat(e.target.value) || 0.1,
-              })
-            }
-            min="0.01"
-            max="10"
-            step="0.01"
-            title="Pixels per millimeter"
-          />
-          px/mm
-        </label>
-      </div>
+      <div className="toolbar-divider" />
 
-      <div className="toolbar-section">
-        <h3>Edit</h3>
-        <button
-          onClick={handleUndo}
-          disabled={!canUndo}
-          title={canUndo ? `Undo: ${getUndoDescription()}` : 'Nothing to undo'}
-        >
-          ↶ Undo
+      <div className="toolbar-group">
+        <button onClick={handleExportJSON} title="Export as JSON">
+          JSON
         </button>
-        <button
-          onClick={handleRedo}
-          disabled={!canRedo}
-          title={canRedo ? `Redo: ${getRedoDescription()}` : 'Nothing to redo'}
-        >
-          ↷ Redo
-        </button>
-        <button onClick={handleClear} className="danger" title="Clear all">
-          🗑️ Clear All
+        <button onClick={handleExportCSV} title="Export as CSV">
+          CSV
         </button>
       </div>
 
-      <div className="toolbar-section">
-        <h3>Info</h3>
-        <div className="info-text">
-          Edges: {state.edges.size}
-        </div>
-        <div className="info-text">
-          Vertices: {state.vertices.size}
-        </div>
-        <div className="info-text">
-          Surfaces: {state.surfaces.size}
-        </div>
-        <div className="info-text">
-          Mode: {state.mode}
-        </div>
+      <div className="toolbar-divider" />
+
+      <div className="toolbar-group">
+        <button onClick={handleClear} title="Clear Canvas" className="danger">
+          Clear
+        </button>
       </div>
     </div>
   );
