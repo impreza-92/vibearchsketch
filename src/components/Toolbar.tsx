@@ -6,9 +6,9 @@ import './Toolbar.css';
 
 export const Toolbar: React.FC = () => {
   const mode = useSpatialStore((state) => state.mode);
-  const snapToGrid = useSpatialStore((state) => state.snapToGrid);
+  const drawingSettings = useSpatialStore((state) => state.drawingSettings);
   const setMode = useSpatialStore((state) => state.setMode);
-  const setSnapToGrid = useSpatialStore((state) => state.setSnapToGrid);
+  const setResolution = useSpatialStore((state) => state.setResolution);
   const undo = useSpatialStore((state) => state.undo);
   const redo = useSpatialStore((state) => state.redo);
   const dispatch = useSpatialStore((state) => state.dispatch);
@@ -95,14 +95,23 @@ export const Toolbar: React.FC = () => {
       <div className="toolbar-divider" />
 
       <div className="toolbar-group">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={snapToGrid}
-            onChange={(e) => setSnapToGrid(e.target.checked)}
-          />
-          Snap to Grid
-        </label>
+        <label className="toolbar-label" htmlFor="resolution-select" style={{ marginRight: '8px', color: '#ccc' }}>Res:</label>
+        <select
+          id="resolution-select"
+          value={drawingSettings.resolution}
+          onChange={(e) => setResolution(Number(e.target.value))}
+          className="toolbar-select"
+          title="Snapping Resolution"
+          style={{ padding: '4px', borderRadius: '4px', background: '#333', color: 'white', border: '1px solid #555' }}
+        >
+          <option value={1}>1 mm</option>
+          <option value={5}>5 mm</option>
+          <option value={10}>10 mm</option>
+          <option value={50}>50 mm</option>
+          <option value={100}>100 mm</option>
+          <option value={500}>500 mm</option>
+          <option value={1000}>1000 mm</option>
+        </select>
       </div>
 
       <div className="toolbar-divider" />

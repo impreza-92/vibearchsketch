@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
 import { useSpatialStore } from '../store/useSpatialStore';
 import type { Vertex, Edge, Surface } from '../types/spatial';
-import { snapToGrid, generateId, isNearVertex, isVertexOnLineSegment } from '../utils/geometry';
+import { getSnappedPoint, generateId, isNearVertex, isVertexOnLineSegment } from '../utils/geometry';
 import { formatEdgeLength } from '../utils/measurements';
 import { DrawEdgeCommand, SplitEdgeCommand } from '../utils/commands';
 
@@ -12,14 +12,14 @@ export const PixiCanvas = () => {
   const gridGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const edgesGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const previewGraphicsRef = useRef<PIXI.Graphics | null>(null);
+  const previewTextRef = useRef<PIXI.Text | null>(null);
   const measurementContainerRef = useRef<PIXI.Container | null>(null);
   const surfaceContainerRef = useRef<PIXI.Container | null>(null);
 
   const graph = useSpatialStore((state) => state.graph);
   const selectedIds = useSpatialStore((state) => state.selectedIds);
   const mode = useSpatialStore((state) => state.mode);
-  const snapToGridEnabled = useSpatialStore((state) => state.snapToGrid);
-  const gridSize = useSpatialStore((state) => state.gridSize);
+  const drawingSettings = useSpatialStore((state) => state.drawingSettings);
   const measurement = useSpatialStore((state) => state.measurement);
   const showMeasurements = measurement.showMeasurements;
   const dispatch = useSpatialStore((state) => state.dispatch);
@@ -48,7 +48,7 @@ export const PixiCanvas = () => {
       await app.init({
         width,
         height,
-        background: 0x1e1e1e,
+        background: 0xF9F9F9,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
@@ -59,9 +59,7 @@ export const PixiCanvas = () => {
       appRef.current = app;
       canvasRef.current.appendChild(app.canvas);
 
-      const gridGraphics = new PIXI.Graphics();
-      gridGraphicsRef.current = gridGraphics;
-      app.stage.addChild(gridGraphics);
+      // Grid graphics removed
 
       const edgesGraphics = new PIXI.Graphics();
       edgesGraphicsRef.current = edgesGraphics;
@@ -70,6 +68,21 @@ export const PixiCanvas = () => {
       const previewGraphics = new PIXI.Graphics();
       previewGraphicsRef.current = previewGraphics;
       app.stage.addChild(previewGraphics);
+
+      const previewText = new PIXI.Text({
+        text: '',
+        style: {
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 12,
+          fill: 0xffaa00,
+          fontWeight: 'bold',
+          stroke: { color: 0x000000, width: 2 },
+        },
+      });
+      previewText.visible = false;
+      previewText.anchor.set(0.5, 1);
+      previewTextRef.current = previewText;
+      app.stage.addChild(previewText);
 
       const measurementContainer = new PIXI.Container();
       measurementContainerRef.current = measurementContainer;
@@ -82,7 +95,7 @@ export const PixiCanvas = () => {
       app.stage.eventMode = 'static';
       app.stage.hitArea = app.screen;
 
-      drawGrid(gridGraphics, app.screen.width, app.screen.height, gridSize);
+      // drawGrid removed
       
       setIsInitialized(true);
     })();
@@ -93,14 +106,7 @@ export const PixiCanvas = () => {
         const height = canvasRef.current.clientHeight;
         
         appRef.current.renderer.resize(width, height);
-        if (gridGraphicsRef.current && appRef.current.screen) {
-          drawGrid(
-            gridGraphicsRef.current,
-            appRef.current.screen.width,
-            appRef.current.screen.height,
-            gridSize
-          );
-        }
+        // Grid resize logic removed
       }
     };
 
@@ -121,28 +127,7 @@ export const PixiCanvas = () => {
     };
   }, []);
 
-  const drawGrid = (
-    graphics: PIXI.Graphics,
-    width: number,
-    height: number,
-    gridSize: number
-  ) => {
-    graphics.clear();
-    for (let x = 0; x <= width; x += gridSize) {
-      graphics.moveTo(x, 0).lineTo(x, height);
-    }
-    for (let y = 0; y <= height; y += gridSize) {
-      graphics.moveTo(0, y).lineTo(width, y);
-    }
-    graphics.stroke({ width: 1, color: 0x2a2a2a, alpha: 1 });
-    for (let x = 0; x <= width; x += gridSize * 5) {
-      graphics.moveTo(x, 0).lineTo(x, height);
-    }
-    for (let y = 0; y <= height; y += gridSize * 5) {
-      graphics.moveTo(0, y).lineTo(width, y);
-    }
-    graphics.stroke({ width: 1, color: 0x3a3a3a, alpha: 1 });
-  };
+  // drawGrid function removed
 
   useEffect(() => {
     if (!edgesGraphicsRef.current || !measurementContainerRef.current) return;
@@ -159,12 +144,12 @@ export const PixiCanvas = () => {
 
       if (startVertex && endVertex) {
         const isSelected = selectedIds.has(edge.id);
-        const color = isSelected ? 0x0078d4 : 0xffffff;
+        const color = isSelected ? 0x0078d4 : 0x2C3E50;
 
         graphics
           .moveTo(startVertex.x, startVertex.y)
           .lineTo(endVertex.x, endVertex.y)
-          .stroke({ width: edge.thickness, color, alpha: 1 });
+          .stroke({ width: 4, color, alpha: 1 });
 
         graphics
           .circle(startVertex.x, startVertex.y, 4)
@@ -267,17 +252,20 @@ export const PixiCanvas = () => {
 
     const handleMouseMove = (event: PIXI.FederatedPointerEvent) => {
       let { x, y } = event.global;
+      // Convert resolution (mm) to pixels
+      const pixelsPerMm = measurement.pixelsPerMm;
+      const resolutionInPixels = drawingSettings.resolution * pixelsPerMm;
+      const vertices = Array.from(graph.getVertices().values());
 
-      if (snapToGridEnabled) {
-        const snapped = snapToGrid({ id: '', x, y }, gridSize);
-        x = snapped.x;
-        y = snapped.y;
-      }
+      const snapped = getSnappedPoint({ x, y }, resolutionInPixels, vertices, 1, tempStartVertex);
+      x = snapped.x;
+      y = snapped.y;
 
       setMousePos({ x, y });
 
       if (mode === 'draw' && tempStartVertex) {
         previewGraphics.clear();
+        
         previewGraphics
           .moveTo(tempStartVertex.x, tempStartVertex.y)
           .lineTo(x, y)
@@ -286,6 +274,25 @@ export const PixiCanvas = () => {
         previewGraphics
           .circle(x, y, 4)
           .fill(0xffaa00);
+
+        // Update length indicator
+        if (previewTextRef.current) {
+          const dx = x - tempStartVertex.x;
+          const dy = y - tempStartVertex.y;
+          const lengthPixels = Math.sqrt(dx * dx + dy * dy);
+          const lengthMm = lengthPixels / pixelsPerMm;
+          const lengthText = `${Math.round(lengthMm)} mm`;
+
+          previewTextRef.current.text = lengthText;
+          previewTextRef.current.x = (tempStartVertex.x + x) / 2;
+          previewTextRef.current.y = (tempStartVertex.y + y) / 2 - 10;
+          previewTextRef.current.visible = true;
+        }
+      } else {
+        // Hide text if not drawing
+        if (previewTextRef.current) {
+          previewTextRef.current.visible = false;
+        }
       }
     };
 
@@ -298,7 +305,7 @@ export const PixiCanvas = () => {
         app.stage.off('pointermove', handleMouseMove);
       }
     };
-  }, [isInitialized, mode, snapToGridEnabled, gridSize, tempStartVertex]);
+  }, [isInitialized, mode, drawingSettings, tempStartVertex, graph]);
 
   useEffect(() => {
     if (!isInitialized || !appRef.current) return;
@@ -309,12 +316,6 @@ export const PixiCanvas = () => {
       if (mode !== 'draw') return;
 
       let { x, y } = mousePos;
-
-      if (snapToGridEnabled) {
-        const snapped = snapToGrid({ id: '', x, y }, gridSize);
-        x = snapped.x;
-        y = snapped.y;
-      }
 
       if (!tempStartVertex) {
         let startVertex: Vertex | undefined;
@@ -343,16 +344,12 @@ export const PixiCanvas = () => {
                   id: generateId(),
                   startVertexId: edge.startVertexId,
                   endVertexId: splitVertex.id,
-                  thickness: edge.thickness,
-                  style: edge.style,
                 };
                 
                 const edge2: Edge = {
                   id: generateId(),
                   startVertexId: splitVertex.id,
                   endVertexId: edge.endVertexId,
-                  thickness: edge.thickness,
-                  style: edge.style,
                 };
 
                 dispatch(new SplitEdgeCommand(edgeId, splitVertex, edge1, edge2));
@@ -399,16 +396,12 @@ export const PixiCanvas = () => {
                   id: generateId(),
                   startVertexId: edge.startVertexId,
                   endVertexId: splitVertex.id,
-                  thickness: edge.thickness,
-                  style: edge.style,
                 };
                 
                 const edge2: Edge = {
                   id: generateId(),
                   startVertexId: splitVertex.id,
                   endVertexId: edge.endVertexId,
-                  thickness: edge.thickness,
-                  style: edge.style,
                 };
 
                 dispatch(new SplitEdgeCommand(edgeId, splitVertex, edge1, edge2));
@@ -431,8 +424,6 @@ export const PixiCanvas = () => {
           id: generateId(),
           startVertexId: tempStartVertex.id,
           endVertexId: endVertex.id,
-          thickness: 4,
-          style: 'solid',
         };
 
         dispatch(
@@ -461,7 +452,7 @@ export const PixiCanvas = () => {
         app.stage.off('pointerdown', handleClick);
       }
     };
-  }, [isInitialized, mode, snapToGridEnabled, gridSize, graph, tempStartVertex, mousePos, dispatch]);
+  }, [isInitialized, mode, drawingSettings, graph, tempStartVertex, mousePos, dispatch]);
 
   useEffect(() => {
     if (mode !== 'draw') {

@@ -63,9 +63,7 @@ describe('SpatialGraph - Core Operations', () => {
       const edge: Edge = { 
         id: 'w1', 
         startVertexId: 'p1', 
-        endVertexId: 'p2',
-        thickness: 4,
-        style: 'solid'
+        endVertexId: 'p2'
       };
       
       graph.addVertex(p1);
@@ -87,9 +85,7 @@ describe('SpatialGraph - Core Operations', () => {
       const edge: Edge = { 
         id: 'w1', 
         startVertexId: 'p1', 
-        endVertexId: 'p2',
-        thickness: 4,
-        style: 'solid'
+        endVertexId: 'p2'
       };
       
       graph.addVertex(p1);
@@ -106,9 +102,7 @@ describe('SpatialGraph - Core Operations', () => {
       const edge: Edge = { 
         id: 'w1', 
         startVertexId: 'p1', 
-        endVertexId: 'p2',
-        thickness: 4,
-        style: 'solid'
+        endVertexId: 'p2'
       };
       
       graph.addVertex(p1);
@@ -126,8 +120,8 @@ describe('SpatialGraph - Core Operations', () => {
       const p2: Vertex = { id: 'p2', x: 100, y: 0 };
       const p3: Vertex = { id: 'p3', x: 0, y: 100 };
       
-      const edge1: Edge = { id: 'w1', startVertexId: 'p1', endVertexId: 'p2', thickness: 4, style: 'solid' };
-      const edge2: Edge = { id: 'w2', startVertexId: 'p1', endVertexId: 'p3', thickness: 4, style: 'solid' };
+      const edge1: Edge = { id: 'w1', startVertexId: 'p1', endVertexId: 'p2' };
+      const edge2: Edge = { id: 'w2', startVertexId: 'p1', endVertexId: 'p3' };
       
       graph.addVertex(p1);
       graph.addVertex(p2);
@@ -316,9 +310,7 @@ describe('SpatialGraph - Edge Cases', () => {
     const diagonal: Edge = {
       id: 'diagonal',
       startVertexId: 'p1',
-      endVertexId: 'p3',
-      thickness: 4,
-      style: 'solid'
+      endVertexId: 'p3'
     };
     
     graph.addEdge(diagonal);

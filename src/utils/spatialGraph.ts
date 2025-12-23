@@ -8,6 +8,7 @@
 
 import type { Vertex, Edge, Surface } from '../types/spatial';
 import { generateId } from './geometry';
+import { updateRoomIds } from './roomDetection';
 
 /**
  * SpatialGraph manages the graph data structure
@@ -262,37 +263,7 @@ export class SpatialGraph {
     return this.surfaces.has(surfaceId);
   }
 
-  /**
-   * Calculate centroid of a set of vertices
-   */
-  private calculateCentroid(vertices: Vertex[]): { x: number; y: number } {
-    let sumX = 0;
-    let sumY = 0;
-    vertices.forEach(p => {
-      sumX += p.x;
-      sumY += p.y;
-    });
-    return {
-      x: sumX / vertices.length,
-      y: sumY / vertices.length,
-    };
-  }
 
-  /**
-   * Calculate polygon area using Shoelace formula
-   * Returns signed area (positive for counter-clockwise, negative for clockwise)
-   */
-  private calculatePolygonArea(vertices: Vertex[]): number {
-    if (vertices.length < 3) return 0;
-    
-    let area = 0;
-    for (let i = 0; i < vertices.length; i++) {
-      const j = (i + 1) % vertices.length;
-      area += vertices[i].x * vertices[j].y;
-      area -= vertices[j].x * vertices[i].y;
-    }
-    return Math.abs(area) / 2;
-  }
 
   /**
    * Get working edges by removing filaments (dead-end edges)
@@ -843,31 +814,16 @@ export class SpatialGraph {
   detectAllSurfaces(): Surface[] {
     const detectedSurfaces = this.runPlanarFaceTraversal();
     
-    // Preserve existing properties like fill color if possible
-    // This is a simple heuristic: if a new surface has roughly the same centroid as an old one, copy props
-    const newSurfaces = new Map<string, Surface>();
+    // Use the new room detection logic to preserve IDs and properties
+    const updatedSurfaces = updateRoomIds(detectedSurfaces, this.surfaces);
     
-    detectedSurfaces.forEach(newSurface => {
-      // Try to find a matching old surface
-      for (const [_, oldSurface] of this.surfaces) {
-        const dx = newSurface.centroid.x - oldSurface.centroid.x;
-        const dy = newSurface.centroid.y - oldSurface.centroid.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        if (dist < 10 && Math.abs(newSurface.area - oldSurface.area) < 100) {
-          if (oldSurface.fill) {
-            newSurface.fill = oldSurface.fill;
-          }
-          // Keep the old ID if we want stable IDs, but room detection usually regenerates IDs
-          // For now, we just copy visual properties
-          break;
-        }
-      }
-      newSurfaces.set(newSurface.id, newSurface);
+    // Update the internal map
+    this.surfaces = new Map();
+    updatedSurfaces.forEach(surface => {
+      this.surfaces.set(surface.id, surface);
     });
 
-    this.surfaces = newSurfaces;
-    return Array.from(newSurfaces.values());
+    return updatedSurfaces;
   }
 
   /**

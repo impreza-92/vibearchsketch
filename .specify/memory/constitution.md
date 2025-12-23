@@ -21,7 +21,7 @@ The application MUST be built using **React 19+** with **TypeScript**. There MUS
 Global application state MUST be managed using **Zustand**. All operations modifying the **SpatialGraph** (or core spatial data) MUST utilize the **Command Pattern** to ensure robust undo/redo capability and history tracking. Direct mutation of the graph from the UI is prohibited. Local component state (`useState`) is reserved for ephemeral UI interactions.
 
 ### III. High-Performance Graphics
-All canvas-based drawing and rendering functionality MUST be implemented using **PixiJS**. The rendering layer SHOULD be decoupled from React's render cycle where possible to ensure 60fps performance. React components should control the *state* of the canvas, while PixiJS handles the *execution* of the rendering.
+All canvas-based drawing and rendering functionality MUST be implemented using **PixiJS**. The rendering layer SHOULD be decoupled from React's render cycle where possible to ensure 60fps performance. React components should control the *state* of the canvas, while PixiJS handles the *execution* of the rendering. When working with PixiJS you can consult its documentation in documentation/pixi.js.
 
 ### IV. Type Safety & Code Quality
 **TypeScript** is the primary language. All interfaces and types MUST be explicitly defined. The codebase MUST adhere to the project's ESLint and Prettier configurations. Commits SHOULD NOT break the build or introduce linting errors. Usage of `any` is forbidden without explicit, documented justification.
