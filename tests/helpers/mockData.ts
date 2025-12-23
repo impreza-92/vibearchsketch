@@ -18,10 +18,10 @@ export function createRectangle(
   ];
 
   const edges: Edge[] = [
-    { id: `${idPrefix}w1`, startVertexId: `${idPrefix}p1`, endVertexId: `${idPrefix}p2`, thickness: 4 },
-    { id: `${idPrefix}w2`, startVertexId: `${idPrefix}p2`, endVertexId: `${idPrefix}p3`, thickness: 4 },
-    { id: `${idPrefix}w3`, startVertexId: `${idPrefix}p3`, endVertexId: `${idPrefix}p4`, thickness: 4 },
-    { id: `${idPrefix}w4`, startVertexId: `${idPrefix}p4`, endVertexId: `${idPrefix}p1`, thickness: 4 },
+    { id: `${idPrefix}w1`, startVertexId: `${idPrefix}p1`, endVertexId: `${idPrefix}p2` },
+    { id: `${idPrefix}w2`, startVertexId: `${idPrefix}p2`, endVertexId: `${idPrefix}p3` },
+    { id: `${idPrefix}w3`, startVertexId: `${idPrefix}p3`, endVertexId: `${idPrefix}p4` },
+    { id: `${idPrefix}w4`, startVertexId: `${idPrefix}p4`, endVertexId: `${idPrefix}p1` },
   ];
 
   return { vertices, edges };
@@ -46,9 +46,9 @@ export function createTriangle(
   ];
 
   const edges: Edge[] = [
-    { id: `${idPrefix}w1`, startVertexId: `${idPrefix}p1`, endVertexId: `${idPrefix}p2`, thickness: 4 },
-    { id: `${idPrefix}w2`, startVertexId: `${idPrefix}p2`, endVertexId: `${idPrefix}p3`, thickness: 4 },
-    { id: `${idPrefix}w3`, startVertexId: `${idPrefix}p3`, endVertexId: `${idPrefix}p1`, thickness: 4 },
+    { id: `${idPrefix}w1`, startVertexId: `${idPrefix}p1`, endVertexId: `${idPrefix}p2` },
+    { id: `${idPrefix}w2`, startVertexId: `${idPrefix}p2`, endVertexId: `${idPrefix}p3` },
+    { id: `${idPrefix}w3`, startVertexId: `${idPrefix}p3`, endVertexId: `${idPrefix}p1` },
   ];
 
   return { vertices, edges };
@@ -73,15 +73,15 @@ export function createTwoAdjacentRooms(): { vertices: Vertex[]; edges: Edge[] } 
 
   const edges: Edge[] = [
     // Room 1: A-B-E-D
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'E', thickness: 4 },
-    { id: 'w3', startVertexId: 'E', endVertexId: 'D', thickness: 4 },
-    { id: 'w4', startVertexId: 'D', endVertexId: 'A', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'E' },
+    { id: 'w3', startVertexId: 'E', endVertexId: 'D' },
+    { id: 'w4', startVertexId: 'D', endVertexId: 'A' },
     
     // Room 2: B-C-F-E (shares edge B-E with Room 1)
-    { id: 'w5', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
-    { id: 'w6', startVertexId: 'C', endVertexId: 'F', thickness: 4 },
-    { id: 'w7', startVertexId: 'F', endVertexId: 'E', thickness: 4 },
+    { id: 'w5', startVertexId: 'B', endVertexId: 'C' },
+    { id: 'w6', startVertexId: 'C', endVertexId: 'F' },
+    { id: 'w7', startVertexId: 'F', endVertexId: 'E' },
     // w2 (B-E) is shared between both rooms
   ];
 
@@ -112,20 +112,20 @@ export function createFourRoomGrid(): { vertices: Vertex[]; edges: Edge[] } {
 
   const edges: Edge[] = [
     // Horizontal edges
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
-    { id: 'w3', startVertexId: 'D', endVertexId: 'E', thickness: 4 },
-    { id: 'w4', startVertexId: 'E', endVertexId: 'F', thickness: 4 },
-    { id: 'w5', startVertexId: 'G', endVertexId: 'H', thickness: 4 },
-    { id: 'w6', startVertexId: 'H', endVertexId: 'I', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'C' },
+    { id: 'w3', startVertexId: 'D', endVertexId: 'E' },
+    { id: 'w4', startVertexId: 'E', endVertexId: 'F' },
+    { id: 'w5', startVertexId: 'G', endVertexId: 'H' },
+    { id: 'w6', startVertexId: 'H', endVertexId: 'I' },
     
     // Vertical edges
-    { id: 'w7', startVertexId: 'A', endVertexId: 'D', thickness: 4 },
-    { id: 'w8', startVertexId: 'D', endVertexId: 'G', thickness: 4 },
-    { id: 'w9', startVertexId: 'B', endVertexId: 'E', thickness: 4 },
-    { id: 'w10', startVertexId: 'E', endVertexId: 'H', thickness: 4 },
-    { id: 'w11', startVertexId: 'C', endVertexId: 'F', thickness: 4 },
-    { id: 'w12', startVertexId: 'F', endVertexId: 'I', thickness: 4 },
+    { id: 'w7', startVertexId: 'A', endVertexId: 'D' },
+    { id: 'w8', startVertexId: 'D', endVertexId: 'G' },
+    { id: 'w9', startVertexId: 'B', endVertexId: 'E' },
+    { id: 'w10', startVertexId: 'E', endVertexId: 'H' },
+    { id: 'w11', startVertexId: 'C', endVertexId: 'F' },
+    { id: 'w12', startVertexId: 'F', endVertexId: 'I' },
   ];
 
   return { vertices, edges };
@@ -153,14 +153,14 @@ export function createLShapedRoom(): { vertices: Vertex[]; edges: Edge[] } {
   ];
 
   const edges: Edge[] = [
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
-    { id: 'w3', startVertexId: 'C', endVertexId: 'F', thickness: 4 },
-    { id: 'w4', startVertexId: 'F', endVertexId: 'H', thickness: 4 },
-    { id: 'w5', startVertexId: 'H', endVertexId: 'G', thickness: 4 },
-    { id: 'w6', startVertexId: 'G', endVertexId: 'E', thickness: 4 },
-    { id: 'w7', startVertexId: 'E', endVertexId: 'D', thickness: 4 },
-    { id: 'w8', startVertexId: 'D', endVertexId: 'A', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'C' },
+    { id: 'w3', startVertexId: 'C', endVertexId: 'F' },
+    { id: 'w4', startVertexId: 'F', endVertexId: 'H' },
+    { id: 'w5', startVertexId: 'H', endVertexId: 'G' },
+    { id: 'w6', startVertexId: 'G', endVertexId: 'E' },
+    { id: 'w7', startVertexId: 'E', endVertexId: 'D' },
+    { id: 'w8', startVertexId: 'D', endVertexId: 'A' },
   ];
 
   return { vertices, edges };
@@ -178,9 +178,9 @@ export function createOpenPath(): { vertices: Vertex[]; edges: Edge[] } {
   ];
 
   const edges: Edge[] = [
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
-    { id: 'w3', startVertexId: 'A', endVertexId: 'D', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'C' },
+    { id: 'w3', startVertexId: 'A', endVertexId: 'D' },
     // Missing edge: D to C (loop not closed)
   ];
 
@@ -214,21 +214,21 @@ export function createThreeRoomLShape(): { vertices: Vertex[]; edges: Edge[] } {
 
   const edges: Edge[] = [
     // Top row
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'C' },
     // Middle row
-    { id: 'w3', startVertexId: 'D', endVertexId: 'E', thickness: 4 },
-    { id: 'w4', startVertexId: 'E', endVertexId: 'F', thickness: 4 },
+    { id: 'w3', startVertexId: 'D', endVertexId: 'E' },
+    { id: 'w4', startVertexId: 'E', endVertexId: 'F' },
     // Bottom row
-    { id: 'w5', startVertexId: 'G', endVertexId: 'H', thickness: 4 },
+    { id: 'w5', startVertexId: 'G', endVertexId: 'H' },
     // Left column
-    { id: 'w6', startVertexId: 'A', endVertexId: 'D', thickness: 4 },
-    { id: 'w7', startVertexId: 'D', endVertexId: 'G', thickness: 4 },
+    { id: 'w6', startVertexId: 'A', endVertexId: 'D' },
+    { id: 'w7', startVertexId: 'D', endVertexId: 'G' },
     // Middle column
-    { id: 'w8', startVertexId: 'B', endVertexId: 'E', thickness: 4 },
-    { id: 'w9', startVertexId: 'E', endVertexId: 'H', thickness: 4 },
+    { id: 'w8', startVertexId: 'B', endVertexId: 'E' },
+    { id: 'w9', startVertexId: 'E', endVertexId: 'H' },
     // Right column (only top section)
-    { id: 'w10', startVertexId: 'C', endVertexId: 'F', thickness: 4 },
+    { id: 'w10', startVertexId: 'C', endVertexId: 'F' },
   ];
 
   return { vertices, edges };
@@ -262,19 +262,19 @@ export function createRectangleWithFilament(): { vertices: Vertex[]; edges: Edge
 
   const edges: Edge[] = [
     // Top
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'C' },
     // Right side
-    { id: 'w3', startVertexId: 'C', endVertexId: 'E', thickness: 4 },
-    { id: 'w4', startVertexId: 'E', endVertexId: 'H', thickness: 4 },
+    { id: 'w3', startVertexId: 'C', endVertexId: 'E' },
+    { id: 'w4', startVertexId: 'E', endVertexId: 'H' },
     // Bottom
-    { id: 'w5', startVertexId: 'H', endVertexId: 'G', thickness: 4 },
-    { id: 'w6', startVertexId: 'G', endVertexId: 'F', thickness: 4 },
+    { id: 'w5', startVertexId: 'H', endVertexId: 'G' },
+    { id: 'w6', startVertexId: 'G', endVertexId: 'F' },
     // Left side
-    { id: 'w7', startVertexId: 'F', endVertexId: 'D', thickness: 4 },
-    { id: 'w8', startVertexId: 'D', endVertexId: 'A', thickness: 4 },
+    { id: 'w7', startVertexId: 'F', endVertexId: 'D' },
+    { id: 'w8', startVertexId: 'D', endVertexId: 'A' },
     // Filament (dead-end edge)
-    { id: 'w9', startVertexId: 'H', endVertexId: 'I', thickness: 4 },
+    { id: 'w9', startVertexId: 'H', endVertexId: 'I' },
   ];
 
   return { vertices, edges };
@@ -307,12 +307,12 @@ export function createSquareWithDiagonal(): { vertices: Vertex[]; edges: Edge[] 
 
   const edges: Edge[] = [
     // Square perimeter
-    { id: 'w1', startVertexId: 'A', endVertexId: 'B', thickness: 4 },
-    { id: 'w2', startVertexId: 'B', endVertexId: 'C', thickness: 4 },
-    { id: 'w3', startVertexId: 'C', endVertexId: 'D', thickness: 4 },
-    { id: 'w4', startVertexId: 'D', endVertexId: 'A', thickness: 4 },
+    { id: 'w1', startVertexId: 'A', endVertexId: 'B' },
+    { id: 'w2', startVertexId: 'B', endVertexId: 'C' },
+    { id: 'w3', startVertexId: 'C', endVertexId: 'D' },
+    { id: 'w4', startVertexId: 'D', endVertexId: 'A' },
     // Diagonal
-    { id: 'w5', startVertexId: 'A', endVertexId: 'C', thickness: 4 },
+    { id: 'w5', startVertexId: 'A', endVertexId: 'C' },
   ];
 
   return { vertices, edges };

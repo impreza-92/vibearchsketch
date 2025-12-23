@@ -8,8 +8,6 @@ export interface Edge {
   id: string;
   startVertexId: string;
   endVertexId: string;
-  thickness: number;
-  style?: string;
 }
 
 export interface Surface {
@@ -18,7 +16,10 @@ export interface Surface {
   area: number;
   name: string;
   centroid: { x: number; y: number };
-  fill?: string;
+}
+
+export interface DrawingSettings {
+  resolution: number;
 }
 
 export type DrawingMode = 'select' | 'draw' | 'erase';

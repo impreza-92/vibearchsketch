@@ -4,7 +4,7 @@ import { SpatialGraph } from '../utils/spatialGraph';
 import { CommandManager } from '../utils/commands';
 import type { Command, CommandState } from '../utils/commands';
 import { enableMapSet, current, isDraft } from 'immer';
-import type { DrawingMode } from '../types/spatial';
+import type { DrawingMode, DrawingSettings } from '../types/spatial';
 
 enableMapSet();
 
@@ -15,6 +15,7 @@ interface SpatialState {
   mode: DrawingMode;
   snapToGrid: boolean;
   gridSize: number;
+  drawingSettings: DrawingSettings;
   measurement: {
     pixelsPerMm: number;
     showMeasurements: boolean;
@@ -29,6 +30,7 @@ interface SpatialState {
   setMode: (mode: DrawingMode) => void;
   setSnapToGrid: (enabled: boolean) => void;
   setGridSize: (size: number) => void;
+  setResolution: (resolution: number) => void;
   setMeasurement: (settings: Partial<{ pixelsPerMm: number; showMeasurements: boolean }>) => void;
 }
 
@@ -40,6 +42,9 @@ export const useSpatialStore = create<SpatialState>()(
     mode: 'draw',
     snapToGrid: true,
     gridSize: 20,
+    drawingSettings: {
+      resolution: 100,
+    },
     measurement: {
       pixelsPerMm: 0.1,
       showMeasurements: true,
@@ -114,6 +119,12 @@ export const useSpatialStore = create<SpatialState>()(
     setGridSize: (size) => {
       set((state) => {
         state.gridSize = size;
+      });
+    },
+
+    setResolution: (resolution) => {
+      set((state) => {
+        state.drawingSettings.resolution = resolution;
       });
     },
 

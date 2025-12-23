@@ -130,3 +130,62 @@ export const isVertexOnLineSegment = (
   // t > 0.1 and t < 0.9 ensures we're not too close to endpoints
   return dist <= tolerance && t > 0.1 && t < 0.9;
 };
+
+/**
+ * Calculates the snapped position for the cursor.
+ * Prioritizes snapping to existing vertices over grid snapping.
+ */
+export const getSnappedPoint = (
+  cursorPos: { x: number; y: number },
+  resolution: number,
+  existingVertices: Vertex[],
+  scale: number = 1,
+  startVertex: Vertex | null = null
+): { x: number; y: number } => {
+  // 1. Configuration
+  // How close (in screen pixels) the mouse needs to be to snap to a vertex.
+  const SCREEN_SNAP_RADIUS = 10;
+  // Convert to world coordinates so behavior is consistent regardless of zoom.
+  const worldSnapRadius = SCREEN_SNAP_RADIUS / scale;
+
+  // 2. Priority 1: Vertex Snapping (Point Snapping)
+  let closestVertex: Vertex | null = null;
+  let minDistance = Infinity;
+
+  for (const vertex of existingVertices) {
+    const dist = Math.hypot(vertex.x - cursorPos.x, vertex.y - cursorPos.y);
+
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestVertex = vertex;
+    }
+  }
+
+  // If we found a vertex within the 'magnetic' radius, return it immediately.
+  // This overrides the grid.
+  if (closestVertex && minDistance <= worldSnapRadius) {
+    return { x: closestVertex.x, y: closestVertex.y };
+  }
+
+  // 3. Priority 2: Relative Length Snapping (only if startVertex is present)
+  // If we are drawing a wall (startVertex exists), snap the length to multiples of resolution.
+  // This ensures walls are always e.g. 100mm, 200mm long, even on diagonals.
+  if (startVertex && resolution > 0) {
+    const dx = cursorPos.x - startVertex.x;
+    const dy = cursorPos.y - startVertex.y;
+    const currentLength = Math.sqrt(dx * dx + dy * dy);
+    
+    if (currentLength === 0) return startVertex;
+
+    const snappedLength = Math.round(currentLength / resolution) * resolution;
+    const scaleFactor = snappedLength / currentLength;
+
+    return {
+      x: startVertex.x + dx * scaleFactor,
+      y: startVertex.y + dy * scaleFactor,
+    };
+  }
+
+  // Default: Return raw cursor position (free movement)
+  return cursorPos;
+};
