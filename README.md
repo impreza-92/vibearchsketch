@@ -9,13 +9,13 @@ A modern web-based floorplan drawing application built with React 19, TypeScript
 
 ## ✨ Features
 
-- **Interactive Wall Drawing** - Click-to-place points to create walls
-- **Smart Edge Splitting** - Click on existing walls to split them and create connections
-- **Automatic Room Detection** - Rooms are automatically detected and labeled
+- **Interactive Edge Drawing** - Click-to-place vertices to create edges
+- **Smart Edge Splitting** - Click on existing edges to split them and create connections
+- **Automatic Surface Detection** - Surfaces (rooms) are automatically detected and labeled
 - **Grid Snapping** - Toggle-able grid snapping for precision
 - **Multiple Drawing Modes** - Draw, Select, Pan, and Erase tools
 - **Robust Undo/Redo** - Command pattern implementation for reliable history
-- **Measurement Display** - Real-time wall length measurements
+- **Measurement Display** - Real-time edge length measurements
 - **Responsive Canvas** - Resizes automatically with window
 - **Type-Safe** - Built with TypeScript for reliability
 - **High Performance** - Hardware-accelerated rendering with Pixi.js WebGL
@@ -44,26 +44,26 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## 🎨 Usage
 
-### Drawing Walls
+### Drawing Edges
 
 1. Click the **✏️ Draw** button in the toolbar
-2. Click on the canvas to place the first point
-3. Move your mouse to see a preview of the wall
-4. Click again to place the second point and create the wall
-5. The wall is complete - next click starts a new wall
-6. To connect walls, click on an existing endpoint when starting or ending a wall
-7. The app automatically snaps to existing points within 10 pixels
-8. Press `Escape` to cancel a wall in progress
+2. Click on the canvas to place the first vertex
+3. Move your mouse to see a preview of the edge
+4. Click again to place the second vertex and create the edge
+5. The edge is complete - next click starts a new edge
+6. To connect edges, click on an existing vertex when starting or ending an edge
+7. The app automatically snaps to existing vertices within 10 pixels
+8. Press `Escape` to cancel an edge in progress
 
 ### Options
 
 - **Snap to Grid** - Toggle grid snapping on/off
 - **Grid Size** - Adjust grid spacing (5-50 pixels)
-- **Show Lengths** - Toggle wall measurement display
+- **Show Lengths** - Toggle edge measurement display
 - **Scale** - Adjust measurement scale (pixels per millimeter)
 - **Undo** (`Ctrl+Z` / `Cmd+Z`) - Undo last action with tooltip showing action description
 - **Redo** (`Ctrl+Y` / `Cmd+Shift+Z`) - Redo undone action with tooltip showing action description
-- **Clear All** - Remove all walls (can be undone)
+- **Clear All** - Remove all edges (can be undone)
 
 ## 🏗️ Architecture
 
@@ -82,14 +82,14 @@ src/
 │   ├── PixiCanvas.tsx  # Main Pixi.js canvas
 │   └── Toolbar.tsx     # Drawing tools toolbar
 ├── context/            # React Context for state
-│   └── FloorplanContext.tsx
+│   └── SpatialContext.tsx
 ├── types/              # TypeScript type definitions
-│   └── floorplan.ts
+│   └── spatial.ts
 ├── utils/              # Utility functions
 │   ├── commands.ts     # Command pattern implementation
 │   ├── geometry.ts     # Math helpers
 │   ├── measurements.ts # Measurement formatting
-│   └── roomDetection.ts # Room detection algorithm
+│   └── spatialGraph.ts # Graph data structure & surface detection
 ├── App.tsx             # Root component
 └── main.tsx           # Entry point
 ```

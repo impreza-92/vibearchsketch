@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
-import { FloorplanProvider, useFloorplan } from './context/FloorplanContext';
+import { SpatialProvider, useSpatial } from './context/SpatialContext';
 import { PixiCanvas } from './components/PixiCanvas';
 import { Toolbar } from './components/Toolbar';
 import './App.css';
 
 function AppContent() {
-  const { dispatch } = useFloorplan();
+  const { dispatch } = useSpatial();
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -41,9 +41,9 @@ function AppContent() {
 
 function App() {
   return (
-    <FloorplanProvider>
+    <SpatialProvider>
       <AppContent />
-    </FloorplanProvider>
+    </SpatialProvider>
   );
 }
 

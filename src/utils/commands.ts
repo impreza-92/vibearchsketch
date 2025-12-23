@@ -6,8 +6,8 @@
  * action and its inverse, allowing for reliable state rollback.
  */
 
-import type { Point, Wall, Room } from '../types/floorplan';
-import { FloorplanGraph } from './floorplanGraph';
+import type { Vertex, Edge, Surface } from '../types/spatial';
+import { SpatialGraph } from './spatialGraph';
 
 /**
  * Base Command interface
@@ -26,26 +26,26 @@ export interface Command {
 
 /**
  * State interface that commands operate on
- * Uses FloorplanGraph for data operations
+ * Uses SpatialGraph for data operations
  */
 export interface CommandState {
-  graph: FloorplanGraph;
+  graph: SpatialGraph;
   selectedIds: Set<string>;
 }
 
 /**
- * Command to add a point to the floorplan
+ * Command to add a vertex to the graph
  */
-export class AddPointCommand implements Command {
-  private point: Point;
+export class AddVertexCommand implements Command {
+  private vertex: Vertex;
 
-  constructor(point: Point) {
-    this.point = point;
+  constructor(vertex: Vertex) {
+    this.vertex = vertex;
   }
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
-    newGraph.addPoint(this.point);
+    newGraph.addVertex(this.vertex);
 
     return {
       ...state,
@@ -55,7 +55,7 @@ export class AddPointCommand implements Command {
 
   undo(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
-    newGraph.removePoint(this.point.id);
+    newGraph.removeVertex(this.vertex.id);
 
     return {
       ...state,
@@ -64,49 +64,49 @@ export class AddPointCommand implements Command {
   }
 
   getDescription(): string {
-    return `Add point at (${this.point.x}, ${this.point.y})`;
+    return `Add vertex at (${this.vertex.x}, ${this.vertex.y})`;
   }
 }
 
 /**
- * Command to draw a wall with its endpoints
- * This is the atomic command for drawing a wall, which may involve:
- * - Creating 0, 1, or 2 new points (if reusing existing points)
- * - Creating 1 wall connecting the points
+ * Command to draw an edge with its endpoints
+ * This is the atomic command for drawing an edge, which may involve:
+ * - Creating 0, 1, or 2 new vertices (if reusing existing vertices)
+ * - Creating 1 edge connecting the vertices
  * 
- * This ensures that drawing a wall is a single undoable operation
+ * This ensures that drawing an edge is a single undoable operation
  */
-export class DrawWallCommand implements Command {
-  private startPoint: Point;
-  private endPoint: Point;
-  private wall: Wall;
-  private startPointExisted: boolean;
-  private endPointExisted: boolean;
-  private createdRooms: Room[] = [];
+export class DrawEdgeCommand implements Command {
+  private startVertex: Vertex;
+  private endVertex: Vertex;
+  private edge: Edge;
+  private startVertexExisted: boolean;
+  private endVertexExisted: boolean;
+  private createdSurfaces: Surface[] = [];
 
-  constructor(startPoint: Point, endPoint: Point, wall: Wall, startPointExists: boolean, endPointExists: boolean) {
-    this.startPoint = startPoint;
-    this.endPoint = endPoint;
-    this.wall = wall;
-    this.startPointExisted = startPointExists;
-    this.endPointExisted = endPointExists;
+  constructor(startVertex: Vertex, endVertex: Vertex, edge: Edge, startVertexExists: boolean, endVertexExists: boolean) {
+    this.startVertex = startVertex;
+    this.endVertex = endVertex;
+    this.edge = edge;
+    this.startVertexExisted = startVertexExists;
+    this.endVertexExisted = endVertexExists;
   }
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Add start point if it didn't exist
-    if (!this.startPointExisted) {
-      newGraph.addPoint(this.startPoint);
+    // Add start vertex if it didn't exist
+    if (!this.startVertexExisted) {
+      newGraph.addVertex(this.startVertex);
     }
     
-    // Add end point if it didn't exist
-    if (!this.endPointExisted) {
-      newGraph.addPoint(this.endPoint);
+    // Add end vertex if it didn't exist
+    if (!this.endVertexExisted) {
+      newGraph.addVertex(this.endVertex);
     }
     
-    // Add wall and track newly created rooms
-    this.createdRooms = newGraph.addWall(this.wall);
+    // Add edge and track newly created surfaces
+    this.createdSurfaces = newGraph.addEdge(this.edge);
 
     return {
       ...state,
@@ -117,17 +117,17 @@ export class DrawWallCommand implements Command {
   undo(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Remove the wall
-    newGraph.removeWall(this.wall.id);
+    // Remove the edge
+    newGraph.removeEdge(this.edge.id);
     
-    // Remove end point if it was created by this command
-    if (!this.endPointExisted) {
-      newGraph.removePoint(this.endPoint.id);
+    // Remove end vertex if it was created by this command
+    if (!this.endVertexExisted) {
+      newGraph.removeVertex(this.endVertex.id);
     }
     
-    // Remove start point if it was created by this command
-    if (!this.startPointExisted) {
-      newGraph.removePoint(this.startPoint.id);
+    // Remove start vertex if it was created by this command
+    if (!this.startVertexExisted) {
+      newGraph.removeVertex(this.startVertex.id);
     }
 
     return {
@@ -137,33 +137,33 @@ export class DrawWallCommand implements Command {
   }
 
   getDescription(): string {
-    const startDesc = this.startPointExisted ? 'existing' : 'new';
-    const endDesc = this.endPointExisted ? 'existing' : 'new';
-    const roomsInfo = this.createdRooms.length > 0 ? ` (created ${this.createdRooms.length} room${this.createdRooms.length > 1 ? 's' : ''})` : '';
-    return `Draw wall from ${startDesc} point to ${endDesc} point${roomsInfo}`;
+    const startDesc = this.startVertexExisted ? 'existing' : 'new';
+    const endDesc = this.endVertexExisted ? 'existing' : 'new';
+    const surfacesInfo = this.createdSurfaces.length > 0 ? ` (created ${this.createdSurfaces.length} surface${this.createdSurfaces.length > 1 ? 's' : ''})` : '';
+    return `Draw edge from ${startDesc} vertex to ${endDesc} vertex${surfacesInfo}`;
   }
 }
 
 /**
- * Command to add a wall to the floorplan
- * Automatically detects and creates rooms
+ * Command to add an edge to the graph
+ * Automatically detects and creates surfaces
  * 
- * Note: For interactive wall drawing, use DrawWallCommand instead.
- * This is for programmatic wall addition when points already exist.
+ * Note: For interactive edge drawing, use DrawEdgeCommand instead.
+ * This is for programmatic edge addition when vertices already exist.
  */
-export class AddWallCommand implements Command {
-  private createdRooms: Room[] = [];
-  private wall: Wall;
+export class AddEdgeCommand implements Command {
+  private createdSurfaces: Surface[] = [];
+  private edge: Edge;
 
-  constructor(wall: Wall) {
-    this.wall = wall;
+  constructor(edge: Edge) {
+    this.edge = edge;
   }
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Add wall and track newly created rooms
-    this.createdRooms = newGraph.addWall(this.wall);
+    // Add edge and track newly created surfaces
+    this.createdSurfaces = newGraph.addEdge(this.edge);
 
     return {
       ...state,
@@ -174,12 +174,12 @@ export class AddWallCommand implements Command {
   undo(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Remove the wall
-    newGraph.removeWall(this.wall.id);
+    // Remove the edge
+    newGraph.removeEdge(this.edge.id);
     
-    // Remove rooms that were created by this wall
-    this.createdRooms.forEach(room => {
-      newGraph.removeRoom(room.id);
+    // Remove surfaces that were created by this edge
+    this.createdSurfaces.forEach(surface => {
+      newGraph.removeSurface(surface.id);
     });
 
     return {
@@ -189,32 +189,32 @@ export class AddWallCommand implements Command {
   }
 
   getDescription(): string {
-    return `Add wall from point ${this.wall.startPointId} to ${this.wall.endPointId}`;
+    return `Add edge from vertex ${this.edge.startVertexId} to ${this.edge.endVertexId}`;
   }
 }
 
 /**
- * Command to remove a wall from the floorplan
+ * Command to remove an edge from the graph
  */
-export class RemoveWallCommand implements Command {
-  private removedWall: Wall | null = null;
-  private affectedRooms: Map<string, Room> = new Map();
-  private wallId: string;
+export class RemoveEdgeCommand implements Command {
+  private removedEdge: Edge | null = null;
+  private affectedSurfaces: Map<string, Surface> = new Map();
+  private edgeId: string;
 
-  constructor(wallId: string) {
-    this.wallId = wallId;
+  constructor(edgeId: string) {
+    this.edgeId = edgeId;
   }
 
   execute(state: CommandState): CommandState {
-    const wall = state.graph.getWall(this.wallId);
-    if (!wall) return state;
+    const edge = state.graph.getEdge(this.edgeId);
+    if (!edge) return state;
 
-    this.removedWall = wall;
+    this.removedEdge = edge;
 
     const newGraph = state.graph.clone();
     
-    // Remove wall and store affected rooms
-    this.affectedRooms = newGraph.removeWall(this.wallId);
+    // Remove edge and store affected surfaces
+    this.affectedSurfaces = newGraph.removeEdge(this.edgeId);
 
     return {
       ...state,
@@ -223,16 +223,16 @@ export class RemoveWallCommand implements Command {
   }
 
   undo(state: CommandState): CommandState {
-    if (!this.removedWall) return state;
+    if (!this.removedEdge) return state;
 
     const newGraph = state.graph.clone();
     
-    // Restore the wall (without auto room detection)
-    newGraph.getWalls().set(this.wallId, this.removedWall);
+    // Restore the edge (without auto surface detection)
+    newGraph.getEdges().set(this.edgeId, this.removedEdge);
     
-    // Restore affected rooms
-    this.affectedRooms.forEach((room) => {
-      newGraph.addRoom(room);
+    // Restore affected surfaces
+    this.affectedSurfaces.forEach((surface) => {
+      newGraph.addSurface(surface);
     });
 
     return {
@@ -242,56 +242,56 @@ export class RemoveWallCommand implements Command {
   }
 
   getDescription(): string {
-    return `Remove wall ${this.wallId}`;
+    return `Remove edge ${this.edgeId}`;
   }
 }
 
 /**
- * Command to split a wall at a point
+ * Command to split an edge at a vertex
  */
-export class SplitWallCommand implements Command {
-  private originalWall: Wall | null = null;
-  private affectedRooms: Map<string, Room> = new Map();
-  private wallId: string;
-  private splitPoint: Point;
-  private wall1: Wall;
-  private wall2: Wall;
+export class SplitEdgeCommand implements Command {
+  private originalEdge: Edge | null = null;
+  private affectedSurfaces: Map<string, Surface> = new Map();
+  private edgeId: string;
+  private splitVertex: Vertex;
+  private edge1: Edge;
+  private edge2: Edge;
 
   constructor(
-    wallId: string,
-    splitPoint: Point,
-    wall1: Wall,
-    wall2: Wall
+    edgeId: string,
+    splitVertex: Vertex,
+    edge1: Edge,
+    edge2: Edge
   ) {
-    this.wallId = wallId;
-    this.splitPoint = splitPoint;
-    this.wall1 = wall1;
-    this.wall2 = wall2;
+    this.edgeId = edgeId;
+    this.splitVertex = splitVertex;
+    this.edge1 = edge1;
+    this.edge2 = edge2;
   }
 
   execute(state: CommandState): CommandState {
-    const wallToSplit = state.graph.getWall(this.wallId);
-    if (!wallToSplit) return state;
+    const edgeToSplit = state.graph.getEdge(this.edgeId);
+    if (!edgeToSplit) return state;
 
-    this.originalWall = wallToSplit;
+    this.originalEdge = edgeToSplit;
 
     const newGraph = state.graph.clone();
 
-    // Store affected rooms before modification
-    const affectedRoomsList = newGraph.getRoomsContainingWall(this.wallId);
-    affectedRoomsList.forEach(room => {
-      this.affectedRooms.set(room.id, room);
+    // Store affected surfaces before modification
+    const affectedSurfacesList = newGraph.getSurfacesContainingEdge(this.edgeId);
+    affectedSurfacesList.forEach(surface => {
+      this.affectedSurfaces.set(surface.id, surface);
     });
 
-    // Add the split point
-    newGraph.addPoint(this.splitPoint);
+    // Add the split vertex
+    newGraph.addVertex(this.splitVertex);
 
-    // Remove the original wall
-    newGraph.removeWall(this.wallId);
+    // Remove the original edge
+    newGraph.removeEdge(this.edgeId);
 
-    // Add the two new walls with room detection
-    newGraph.addWall(this.wall1);
-    newGraph.addWall(this.wall2);
+    // Add the two new edges with surface detection
+    newGraph.addEdge(this.edge1);
+    newGraph.addEdge(this.edge2);
 
     return {
       ...state,
@@ -300,19 +300,19 @@ export class SplitWallCommand implements Command {
   }
 
   undo(state: CommandState): CommandState {
-    if (!this.originalWall) return state;
+    if (!this.originalEdge) return state;
 
     const newGraph = state.graph.clone();
 
-    // Remove the split point (this also removes connected walls)
-    newGraph.removePoint(this.splitPoint.id);
+    // Remove the split vertex (this also removes connected edges)
+    newGraph.removeVertex(this.splitVertex.id);
 
-    // Restore the original wall
-    newGraph.getWalls().set(this.wallId, this.originalWall);
+    // Restore the original edge
+    newGraph.getEdges().set(this.edgeId, this.originalEdge);
 
-    // Restore original rooms
-    this.affectedRooms.forEach((room) => {
-      newGraph.addRoom(room);
+    // Restore original surfaces
+    this.affectedSurfaces.forEach((surface) => {
+      newGraph.addSurface(surface);
     });
 
     return {
@@ -322,23 +322,23 @@ export class SplitWallCommand implements Command {
   }
 
   getDescription(): string {
-    return `Split wall ${this.wallId} at point (${this.splitPoint.x}, ${this.splitPoint.y})`;
+    return `Split edge ${this.edgeId} at vertex (${this.splitVertex.x}, ${this.splitVertex.y})`;
   }
 }
 
 /**
- * Command to add a room to the floorplan
+ * Command to add a surface to the graph
  */
-export class AddRoomCommand implements Command {
-  private room: Room;
+export class AddSurfaceCommand implements Command {
+  private surface: Surface;
 
-  constructor(room: Room) {
-    this.room = room;
+  constructor(surface: Surface) {
+    this.surface = surface;
   }
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
-    newGraph.addRoom(this.room);
+    newGraph.addSurface(this.surface);
 
     return {
       ...state,
@@ -348,7 +348,7 @@ export class AddRoomCommand implements Command {
 
   undo(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
-    newGraph.removeRoom(this.room.id);
+    newGraph.removeSurface(this.surface.id);
 
     return {
       ...state,
@@ -357,31 +357,31 @@ export class AddRoomCommand implements Command {
   }
 
   getDescription(): string {
-    return `Add room "${this.room.name}"`;
+    return `Add surface "${this.surface.name}"`;
   }
 }
 
 /**
- * Command to update a room's properties
+ * Command to update a surface's properties
  */
-export class UpdateRoomCommand implements Command {
-  private previousRoom: Room | null = null;
-  private roomId: string;
-  private updates: Partial<Room>;
+export class UpdateSurfaceCommand implements Command {
+  private previousSurface: Surface | null = null;
+  private surfaceId: string;
+  private updates: Partial<Surface>;
 
   constructor(
-    roomId: string,
-    updates: Partial<Room>
+    surfaceId: string,
+    updates: Partial<Surface>
   ) {
-    this.roomId = roomId;
+    this.surfaceId = surfaceId;
     this.updates = updates;
   }
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Update room and store previous state
-    this.previousRoom = newGraph.updateRoom(this.roomId, this.updates) || null;
+    // Update surface and store previous state
+    this.previousSurface = newGraph.updateSurface(this.surfaceId, this.updates) || null;
 
     return {
       ...state,
@@ -390,10 +390,10 @@ export class UpdateRoomCommand implements Command {
   }
 
   undo(state: CommandState): CommandState {
-    if (!this.previousRoom) return state;
+    if (!this.previousSurface) return state;
 
     const newGraph = state.graph.clone();
-    newGraph.getRooms().set(this.roomId, this.previousRoom);
+    newGraph.getSurfaces().set(this.surfaceId, this.previousSurface);
 
     return {
       ...state,
@@ -402,24 +402,24 @@ export class UpdateRoomCommand implements Command {
   }
 
   getDescription(): string {
-    return `Update room ${this.roomId}`;
+    return `Update surface ${this.surfaceId}`;
   }
 }
 
 /**
- * Command to remove a room from the floorplan
+ * Command to remove a surface from the graph
  */
-export class RemoveRoomCommand implements Command {
-  private removedRoom: Room | null = null;
-  private roomId: string;
+export class RemoveSurfaceCommand implements Command {
+  private removedSurface: Surface | null = null;
+  private surfaceId: string;
 
-  constructor(roomId: string) {
-    this.roomId = roomId;
+  constructor(surfaceId: string) {
+    this.surfaceId = surfaceId;
   }
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
-    this.removedRoom = newGraph.removeRoom(this.roomId) || null;
+    this.removedSurface = newGraph.removeSurface(this.surfaceId) || null;
 
     return {
       ...state,
@@ -428,10 +428,10 @@ export class RemoveRoomCommand implements Command {
   }
 
   undo(state: CommandState): CommandState {
-    if (!this.removedRoom) return state;
+    if (!this.removedSurface) return state;
 
     const newGraph = state.graph.clone();
-    newGraph.addRoom(this.removedRoom);
+    newGraph.addSurface(this.removedSurface);
 
     return {
       ...state,
@@ -440,27 +440,27 @@ export class RemoveRoomCommand implements Command {
   }
 
   getDescription(): string {
-    return `Remove room ${this.roomId}`;
+    return `Remove surface ${this.surfaceId}`;
   }
 }
 
 /**
- * Command to detect all rooms in the floorplan
+ * Command to detect all surfaces in the graph
  */
-export class DetectRoomsCommand implements Command {
-  private previousRooms: Map<string, Room> = new Map();
-  private detectedRooms: Room[] = [];
+export class DetectSurfacesCommand implements Command {
+  private previousSurfaces: Map<string, Surface> = new Map();
+  private detectedSurfaces: Surface[] = [];
 
   execute(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Store previous rooms for undo
-    this.previousRooms = newGraph.getRooms();
+    // Store previous surfaces for undo
+    this.previousSurfaces = newGraph.getSurfaces();
 
-    // Detect all rooms in the current floorplan
-    this.detectedRooms = newGraph.detectAllRooms();
+    // Detect all surfaces in the current graph
+    this.detectedSurfaces = newGraph.detectAllSurfaces();
     
-    if (this.detectedRooms.length === 0) return state;
+    if (this.detectedSurfaces.length === 0) return state;
 
     return {
       ...state,
@@ -471,11 +471,11 @@ export class DetectRoomsCommand implements Command {
   undo(state: CommandState): CommandState {
     const newGraph = state.graph.clone();
     
-    // Restore previous rooms
+    // Restore previous surfaces
     newGraph.restore(
-      newGraph.getPoints(),
-      newGraph.getWalls(),
-      this.previousRooms
+      newGraph.getVertices(),
+      newGraph.getEdges(),
+      this.previousSurfaces
     );
 
     return {
@@ -485,12 +485,12 @@ export class DetectRoomsCommand implements Command {
   }
 
   getDescription(): string {
-    return `Detect rooms (found ${this.detectedRooms.length} rooms)`;
+    return `Detect surfaces (found ${this.detectedSurfaces.length} surfaces)`;
   }
 }
 
 /**
- * Command to clear all elements from the floorplan
+ * Command to clear all elements from the graph
  */
 export class ClearAllCommand implements Command {
   private previousState: CommandState | null = null;

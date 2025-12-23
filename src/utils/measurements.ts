@@ -1,6 +1,6 @@
 // Measurement utilities for converting pixels to millimeters
 
-import type { Point, MeasurementSettings } from '../types/floorplan';
+import type { Vertex, MeasurementSettings } from '../types/spatial';
 import { distance } from './geometry';
 
 /**
@@ -24,14 +24,14 @@ export function mmToPixels(
 }
 
 /**
- * Calculate the real-world distance between two points in millimeters
+ * Calculate the real-world distance between two vertices in millimeters
  */
 export function calculateRealDistance(
-  point1: Point,
-  point2: Point,
+  vertex1: Vertex,
+  vertex2: Vertex,
   pixelsPerMm: number
 ): number {
-  const pixelDistance = distance(point1, point2);
+  const pixelDistance = distance(vertex1, vertex2);
   return pixelsToMm(pixelDistance, pixelsPerMm);
 }
 
@@ -47,25 +47,25 @@ export function formatMeasurement(
 }
 
 /**
- * Calculate and format the real-world length of a wall
+ * Calculate and format the real-world length of an edge
  */
-export function getWallLength(
-  startPoint: Point,
-  endPoint: Point,
+export function getEdgeLength(
+  startVertex: Vertex,
+  endVertex: Vertex,
   settings: MeasurementSettings
 ): number {
-  return calculateRealDistance(startPoint, endPoint, settings.pixelsPerMm);
+  return calculateRealDistance(startVertex, endVertex, settings.pixelsPerMm);
 }
 
 /**
- * Format a wall length for display
+ * Format an edge length for display
  */
-export function formatWallLength(
-  startPoint: Point,
-  endPoint: Point,
+export function formatEdgeLength(
+  startVertex: Vertex,
+  endVertex: Vertex,
   settings: MeasurementSettings
 ): string {
-  const length = getWallLength(startPoint, endPoint, settings);
+  const length = getEdgeLength(startVertex, endVertex, settings);
   return formatMeasurement(length);
 }
 

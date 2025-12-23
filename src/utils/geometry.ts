@@ -1,42 +1,42 @@
-// Geometry utility functions for floorplan calculations
+// Geometry utility functions for spatial calculations
 
-import type { Point } from '../types/floorplan';
+import type { Vertex } from '../types/spatial';
 
 /**
- * Calculate distance between two points
+ * Calculate distance between two vertices
  */
-export const distance = (p1: Point, p2: Point): number => {
+export const distance = (p1: Vertex, p2: Vertex): number => {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
   return Math.sqrt(dx * dx + dy * dy);
 };
 
 /**
- * Snap a point to the nearest grid intersection
+ * Snap a vertex to the nearest grid intersection
  */
-export const snapToGrid = (point: Point, gridSize: number): Point => {
+export const snapToGrid = (vertex: Vertex, gridSize: number): Vertex => {
   return {
-    ...point,
-    x: Math.round(point.x / gridSize) * gridSize,
-    y: Math.round(point.y / gridSize) * gridSize,
+    ...vertex,
+    x: Math.round(vertex.x / gridSize) * gridSize,
+    y: Math.round(vertex.y / gridSize) * gridSize,
   };
 };
 
 /**
- * Check if a point is within tolerance of another point
+ * Check if a vertex is within tolerance of another vertex
  */
-export const isNearPoint = (
-  p1: Point,
-  p2: Point,
+export const isNearVertex = (
+  p1: Vertex,
+  p2: Vertex,
   tolerance: number
 ): boolean => {
   return distance(p1, p2) <= tolerance;
 };
 
 /**
- * Calculate the midpoint between two points
+ * Calculate the midpoint between two vertices
  */
-export const midpoint = (p1: Point, p2: Point): Point => {
+export const midpoint = (p1: Vertex, p2: Vertex): Vertex => {
   return {
     id: '',
     x: (p1.x + p2.x) / 2,
@@ -48,10 +48,10 @@ export const midpoint = (p1: Point, p2: Point): Point => {
  * Check if two line segments intersect
  */
 export const lineSegmentsIntersect = (
-  p1: Point,
-  p2: Point,
-  p3: Point,
-  p4: Point
+  p1: Vertex,
+  p2: Vertex,
+  p3: Vertex,
+  p4: Vertex
 ): boolean => {
   const det = (p2.x - p1.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p2.y - p1.y);
   if (det === 0) return false; // Parallel lines
@@ -72,22 +72,22 @@ export const generateId = (): string => {
 };
 
 /**
- * Calculate the perpendicular distance from a point to a line segment
- * Returns the distance and the closest point on the segment
+ * Calculate the perpendicular distance from a vertex to a line segment
+ * Returns the distance and the closest vertex on the segment
  */
 export const pointToLineSegmentDistance = (
-  point: Point,
-  lineStart: Point,
-  lineEnd: Point
-): { distance: number; closestPoint: Point; t: number } => {
+  vertex: Vertex,
+  lineStart: Vertex,
+  lineEnd: Vertex
+): { distance: number; closestVertex: Vertex; t: number } => {
   const dx = lineEnd.x - lineStart.x;
   const dy = lineEnd.y - lineStart.y;
   
   // If line segment is actually a point
   if (dx === 0 && dy === 0) {
     return {
-      distance: distance(point, lineStart),
-      closestPoint: lineStart,
+      distance: distance(vertex, lineStart),
+      closestVertex: lineStart,
       t: 0,
     };
   }
@@ -97,37 +97,36 @@ export const pointToLineSegmentDistance = (
     0,
     Math.min(
       1,
-      ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy)
+      ((vertex.x - lineStart.x) * dx + (vertex.y - lineStart.y) * dy) / (dx * dx + dy * dy)
     )
   );
 
-  // Calculate closest point on line segment
-  const closestPoint: Point = {
+  const closestVertex: Vertex = {
     id: '',
     x: lineStart.x + t * dx,
     y: lineStart.y + t * dy,
   };
 
   return {
-    distance: distance(point, closestPoint),
-    closestPoint,
-    t, // 0 = at start, 1 = at end, 0.5 = at middle
+    distance: distance(vertex, closestVertex),
+    closestVertex,
+    t,
   };
 };
 
 /**
- * Check if a point is on a line segment (within tolerance)
- * Returns true only if the point is ON the segment (not near endpoints)
+ * Check if a vertex is on a line segment (within tolerance)
+ * Returns true only if the vertex is ON the segment (not near endpoints)
  */
-export const isPointOnLineSegment = (
-  point: Point,
-  lineStart: Point,
-  lineEnd: Point,
+export const isVertexOnLineSegment = (
+  vertex: Vertex,
+  lineStart: Vertex,
+  lineEnd: Vertex,
   tolerance: number = 5
 ): boolean => {
-  const { distance: dist, t } = pointToLineSegmentDistance(point, lineStart, lineEnd);
+  const { distance: dist, t } = pointToLineSegmentDistance(vertex, lineStart, lineEnd);
   
-  // Point must be close to the line AND not near the endpoints
+  // Vertex must be close to the line AND not near the endpoints
   // t > 0.1 and t < 0.9 ensures we're not too close to endpoints
   return dist <= tolerance && t > 0.1 && t < 0.9;
 };

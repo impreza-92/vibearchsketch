@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import * as PIXI from 'pixi.js';
-import { useFloorplan } from '../context/FloorplanContext';
-import type { Point, Wall, Room } from '../types/floorplan';
-import { snapToGrid, generateId, isNearPoint, isPointOnLineSegment } from '../utils/geometry';
-import { formatWallLength } from '../utils/measurements';
+import { useSpatial } from '../context/SpatialContext';
+import type { Vertex, Edge, Surface } from '../types/spatial';
+import { snapToGrid, generateId, isNearVertex, isVertexOnLineSegment } from '../utils/geometry';
+import { formatEdgeLength } from '../utils/measurements';
 
 export const PixiCanvas = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const gridGraphicsRef = useRef<PIXI.Graphics | null>(null);
-  const wallsGraphicsRef = useRef<PIXI.Graphics | null>(null);
+  const edgesGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const previewGraphicsRef = useRef<PIXI.Graphics | null>(null);
   const measurementContainerRef = useRef<PIXI.Container | null>(null);
-  const roomContainerRef = useRef<PIXI.Container | null>(null);
+  const surfaceContainerRef = useRef<PIXI.Container | null>(null);
 
-  const { state, dispatch } = useFloorplan();
-  const [tempStartPoint, setTempStartPoint] = useState<Point | null>(null);
+  const { state, dispatch } = useSpatial();
+  const [tempStartVertex, setTempStartVertex] = useState<Vertex | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({
     x: 0,
     y: 0,
@@ -57,9 +57,9 @@ export const PixiCanvas = () => {
       gridGraphicsRef.current = gridGraphics;
       app.stage.addChild(gridGraphics);
 
-      const wallsGraphics = new PIXI.Graphics();
-      wallsGraphicsRef.current = wallsGraphics;
-      app.stage.addChild(wallsGraphics);
+      const edgesGraphics = new PIXI.Graphics();
+      edgesGraphicsRef.current = edgesGraphics;
+      app.stage.addChild(edgesGraphics);
 
       const previewGraphics = new PIXI.Graphics();
       previewGraphicsRef.current = previewGraphics;
@@ -70,10 +70,10 @@ export const PixiCanvas = () => {
       measurementContainerRef.current = measurementContainer;
       app.stage.addChild(measurementContainer);
 
-      // Create room container for room labels (on top of everything)
-      const roomContainer = new PIXI.Container();
-      roomContainerRef.current = roomContainer;
-      app.stage.addChild(roomContainer);
+      // Create surface container for surface labels (on top of everything)
+      const surfaceContainer = new PIXI.Container();
+      surfaceContainerRef.current = surfaceContainer;
+      app.stage.addChild(surfaceContainer);
 
       // Enable interaction on stage
       app.stage.eventMode = 'static';
@@ -121,7 +121,7 @@ export const PixiCanvas = () => {
       }
       
       gridGraphicsRef.current = null;
-      wallsGraphicsRef.current = null;
+      edgesGraphicsRef.current = null;
       previewGraphicsRef.current = null;
     };
   }, []);
@@ -154,44 +154,44 @@ export const PixiCanvas = () => {
     graphics.stroke({ width: 1, color: 0x3a3a3a, alpha: 1 });
   };
 
-  // Render walls
+  // Render edges
   useEffect(() => {
-    if (!wallsGraphicsRef.current || !measurementContainerRef.current) return;
+    if (!edgesGraphicsRef.current || !measurementContainerRef.current) return;
 
-    const graphics = wallsGraphicsRef.current;
+    const graphics = edgesGraphicsRef.current;
     const measurementContainer = measurementContainerRef.current;
     
     graphics.clear();
     // Clear previous measurement labels
     measurementContainer.removeChildren();
 
-    // Draw all walls
-    state.walls.forEach((wall: Wall) => {
-      const startPoint = state.points.get(wall.startPointId);
-      const endPoint = state.points.get(wall.endPointId);
+    // Draw all edges
+    state.edges.forEach((edge: Edge) => {
+      const startVertex = state.vertices.get(edge.startVertexId);
+      const endVertex = state.vertices.get(edge.endVertexId);
 
-      if (startPoint && endPoint) {
-        const isSelected = state.selectedIds.has(wall.id);
+      if (startVertex && endVertex) {
+        const isSelected = state.selectedIds.has(edge.id);
         const color = isSelected ? 0x0078d4 : 0xffffff;
 
-        // Draw wall line
+        // Draw edge line
         graphics
-          .moveTo(startPoint.x, startPoint.y)
-          .lineTo(endPoint.x, endPoint.y)
-          .stroke({ width: wall.thickness, color, alpha: 1 });
+          .moveTo(startVertex.x, startVertex.y)
+          .lineTo(endVertex.x, endVertex.y)
+          .stroke({ width: edge.thickness, color, alpha: 1 });
 
-        // Draw points
+        // Draw vertices
         graphics
-          .circle(startPoint.x, startPoint.y, 4)
+          .circle(startVertex.x, startVertex.y, 4)
           .fill(color)
-          .circle(endPoint.x, endPoint.y, 4)
+          .circle(endVertex.x, endVertex.y, 4)
           .fill(color);
 
         // Add measurement label if enabled
         if (state.measurement.showMeasurements) {
-          const measurementText = formatWallLength(
-            startPoint,
-            endPoint,
+          const measurementText = formatEdgeLength(
+            startVertex,
+            endVertex,
             state.measurement
           );
 
@@ -205,12 +205,12 @@ export const PixiCanvas = () => {
             },
           });
 
-          // Position text at midpoint of wall
-          const midX = (startPoint.x + endPoint.x) / 2;
-          const midY = (startPoint.y + endPoint.y) / 2;
+          // Position text at midpoint of edge
+          const midX = (startVertex.x + endVertex.x) / 2;
+          const midY = (startVertex.y + endVertex.y) / 2;
           
-          // Calculate rotation to align with wall
-          const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+          // Calculate rotation to align with edge
+          const angle = Math.atan2(endVertex.y - startVertex.y, endVertex.x - startVertex.x);
           
           text.anchor.set(0.5, 0.5);
           text.x = midX;
@@ -242,20 +242,20 @@ export const PixiCanvas = () => {
         }
       }
     });
-  }, [state.walls, state.points, state.selectedIds, state.measurement]);
+  }, [state.edges, state.vertices, state.selectedIds, state.measurement]);
 
-  // Render rooms
+  // Render surfaces
   useEffect(() => {
-    if (!roomContainerRef.current) return;
+    if (!surfaceContainerRef.current) return;
 
-    const roomContainer = roomContainerRef.current;
-    roomContainer.removeChildren();
+    const surfaceContainer = surfaceContainerRef.current;
+    surfaceContainer.removeChildren();
 
-    // Draw all rooms
-    state.rooms.forEach((room: Room) => {
-      // Create room label
+    // Draw all surfaces
+    state.surfaces.forEach((surface: Surface) => {
+      // Create surface label
       const text = new PIXI.Text({
-        text: room.name,
+        text: surface.name,
         style: {
           fontFamily: 'Arial, sans-serif',
           fontSize: 16,
@@ -265,23 +265,23 @@ export const PixiCanvas = () => {
       });
 
       text.anchor.set(0.5, 0.5);
-      text.x = room.centroid.x;
-      text.y = room.centroid.y;
+      text.x = surface.centroid.x;
+      text.y = surface.centroid.y;
 
       // Add semi-transparent background
       const bg = new PIXI.Graphics();
       bg.rect(
-        room.centroid.x - text.width / 2 - 4,
-        room.centroid.y - text.height / 2 - 2,
+        surface.centroid.x - text.width / 2 - 4,
+        surface.centroid.y - text.height / 2 - 2,
         text.width + 8,
         text.height + 4
       );
       bg.fill({ color: 0x000000, alpha: 0.6 });
 
-      roomContainer.addChild(bg);
-      roomContainer.addChild(text);
+      surfaceContainer.addChild(bg);
+      surfaceContainer.addChild(text);
     });
-  }, [state.rooms]);
+  }, [state.surfaces]);
 
   // Handle mouse move
   useEffect(() => {
@@ -304,16 +304,16 @@ export const PixiCanvas = () => {
       setMousePos({ x, y });
 
       // Draw preview in draw mode
-      if (state.mode === 'draw' && tempStartPoint) {
+      if (state.mode === 'draw' && tempStartVertex) {
         previewGraphics.clear();
         
         // Draw preview line
         previewGraphics
-          .moveTo(tempStartPoint.x, tempStartPoint.y)
+          .moveTo(tempStartVertex.x, tempStartVertex.y)
           .lineTo(x, y)
           .stroke({ width: 2, color: 0xffaa00, alpha: 1 });
 
-        // Draw preview point
+        // Draw preview vertex
         previewGraphics
           .circle(x, y, 4)
           .fill(0xffaa00);
@@ -331,7 +331,7 @@ export const PixiCanvas = () => {
         app.stage.off('pointermove', handleMouseMove);
       }
     };
-  }, [isInitialized, state.mode, state.snapToGrid, state.gridSize, tempStartPoint]);
+  }, [isInitialized, state.mode, state.snapToGrid, state.gridSize, tempStartVertex]);
 
   // Handle click
   useEffect(() => {
@@ -352,144 +352,142 @@ export const PixiCanvas = () => {
         y = snapped.y;
       }
 
-      if (!tempStartPoint) {
-        // === FIRST CLICK: Determine start point ===
+      if (!tempStartVertex) {
+        // === FIRST CLICK: Determine start vertex ===
         // Handles scenarios 1 & 2 (new start) and 3 & 4 (existing start) and 5 (split edge)
-        let startPoint: Point | undefined;
+        let startVertex: Vertex | undefined;
         
-        // First, search for existing point within 10px radius
-        for (const [, point] of state.points) {
-          if (isNearPoint({ id: '', x, y }, point, 10)) {
-            startPoint = point;
+        // First, search for existing vertex within 10px radius
+        for (const [, vertex] of state.vertices) {
+          if (isNearVertex({ id: '', x, y }, vertex, 10)) {
+            startVertex = vertex;
             break;
           }
         }
         
-        // If no nearby point, check if clicking on an existing wall (Scenario 5)
-        if (!startPoint) {
-          for (const [wallId, wall] of state.walls) {
-            const startWallPoint = state.points.get(wall.startPointId);
-            const endWallPoint = state.points.get(wall.endPointId);
+        // If no nearby vertex, check if clicking on an existing edge (Scenario 5)
+        if (!startVertex) {
+          for (const [edgeId, edge] of state.edges) {
+            const startEdgeVertex = state.vertices.get(edge.startVertexId);
+            const endEdgeVertex = state.vertices.get(edge.endVertexId);
             
-            if (startWallPoint && endWallPoint) {
-              if (isPointOnLineSegment({ id: '', x, y }, startWallPoint, endWallPoint, 8)) {
-                // Scenario 5: Split the wall at this point
-                const splitPoint: Point = {
+            if (startEdgeVertex && endEdgeVertex) {
+              if (isVertexOnLineSegment({ id: '', x, y }, startEdgeVertex, endEdgeVertex, 8)) {
+                // Scenario 5: Split the edge at this vertex
+                const splitVertex: Vertex = {
                   id: generateId(),
                   x,
                   y,
                 };
                 
-                dispatch({ type: 'SPLIT_WALL', wallId, splitPoint });
-                console.log('Wall split at point:', splitPoint);
+                dispatch({ type: 'SPLIT_EDGE', edgeId, splitVertex });
+                console.log('Edge split at vertex:', splitVertex);
                 
-                // Use the split point as the start point
-                startPoint = splitPoint;
+                // Use the split vertex as the start vertex
+                startVertex = splitVertex;
                 break;
               }
             }
           }
         }
         
-        // Only create new point if none exists nearby and not on wall
-        // Note: We don't dispatch ADD_POINT here anymore - it will be part of DRAW_WALL
-        if (!startPoint) {
+        // Only create new vertex if none exists nearby and not on edge
+        if (!startVertex) {
           // Scenarios 1 & 3: Create new start vertex
-          startPoint = {
+          startVertex = {
             id: generateId(),
             x,
             y,
           };
-          console.log('New start point created (not dispatched yet):', startPoint);
-        } else if (!state.points.has(startPoint.id)) {
-          // Edge case: split point needs to be waited for (it's in the dispatch queue)
-          // The split point will be available in the next render
-          console.log('Using split point as start:', startPoint);
+          console.log('New start vertex created (not dispatched yet):', startVertex);
+        } else if (!state.vertices.has(startVertex.id)) {
+          // Edge case: split vertex needs to be waited for (it's in the dispatch queue)
+          // The split vertex will be available in the next render
+          console.log('Using split vertex as start:', startVertex);
         } else {
           // Scenarios 2 & 4: Reuse existing start vertex
-          console.log('Reusing existing start point:', startPoint);
+          console.log('Reusing existing start vertex:', startVertex);
         }
         
-        setTempStartPoint(startPoint);
+        setTempStartVertex(startVertex);
       } else {
-        // === SECOND CLICK: Determine end point and create wall ===
+        // === SECOND CLICK: Determine end vertex and create edge ===
         // Handles scenarios 1 & 2 (new end) and 3 & 4 (existing end) and 5 (split edge)
-        let endPoint: Point | undefined;
+        let endVertex: Vertex | undefined;
 
-        // First, search for existing point within 10px radius
-        for (const [, point] of state.points) {
-          if (isNearPoint({ id: '', x, y }, point, 10)) {
-            endPoint = point;
+        // First, search for existing vertex within 10px radius
+        for (const [, vertex] of state.vertices) {
+          if (isNearVertex({ id: '', x, y }, vertex, 10)) {
+            endVertex = vertex;
             break;
           }
         }
 
-        // If no nearby point, check if clicking on an existing wall (Scenario 5)
-        if (!endPoint) {
-          for (const [wallId, wall] of state.walls) {
-            const startWallPoint = state.points.get(wall.startPointId);
-            const endWallPoint = state.points.get(wall.endPointId);
+        // If no nearby vertex, check if clicking on an existing edge (Scenario 5)
+        if (!endVertex) {
+          for (const [edgeId, edge] of state.edges) {
+            const startEdgeVertex = state.vertices.get(edge.startVertexId);
+            const endEdgeVertex = state.vertices.get(edge.endVertexId);
             
-            if (startWallPoint && endWallPoint) {
-              if (isPointOnLineSegment({ id: '', x, y }, startWallPoint, endWallPoint, 8)) {
-                // Scenario 5: Split the wall at this point
-                const splitPoint: Point = {
+            if (startEdgeVertex && endEdgeVertex) {
+              if (isVertexOnLineSegment({ id: '', x, y }, startEdgeVertex, endEdgeVertex, 8)) {
+                // Scenario 5: Split the edge at this vertex
+                const splitVertex: Vertex = {
                   id: generateId(),
                   x,
                   y,
                 };
                 
-                dispatch({ type: 'SPLIT_WALL', wallId, splitPoint });
-                console.log('Wall split at point:', splitPoint);
+                dispatch({ type: 'SPLIT_EDGE', edgeId, splitVertex });
+                console.log('Edge split at vertex:', splitVertex);
                 
-                // Use the split point as the end point
-                endPoint = splitPoint;
+                // Use the split vertex as the end vertex
+                endVertex = splitVertex;
                 break;
               }
             }
           }
         }
 
-        // Only create new point if none exists nearby and not on wall
-        // Note: We don't dispatch ADD_POINT here anymore - it will be part of DRAW_WALL
-        if (!endPoint) {
+        // Only create new vertex if none exists nearby and not on edge
+        if (!endVertex) {
           // Scenarios 1 & 2: Create new end vertex
-          endPoint = {
+          endVertex = {
             id: generateId(),
             x,
             y,
           };
-          console.log('New end point created (not dispatched yet):', endPoint);
-        } else if (!state.points.has(endPoint.id)) {
-          // Edge case: split point needs to be waited for (it's in the dispatch queue)
-          console.log('Using split point as end:', endPoint);
+          console.log('New end vertex created (not dispatched yet):', endVertex);
+        } else if (!state.vertices.has(endVertex.id)) {
+          // Edge case: split vertex needs to be waited for (it's in the dispatch queue)
+          console.log('Using split vertex as end:', endVertex);
         } else {
           // Scenarios 3 & 4: Reuse existing end vertex
-          console.log('Reusing existing end point:', endPoint);
+          console.log('Reusing existing end vertex:', endVertex);
         }
 
-        // Create wall connecting the two points (all 5 scenarios)
-        const wall: Wall = {
+        // Create edge connecting the two vertices (all 5 scenarios)
+        const edge: Edge = {
           id: generateId(),
-          startPointId: tempStartPoint.id,
-          endPointId: endPoint.id,
+          startVertexId: tempStartVertex.id,
+          endVertexId: endVertex.id,
           thickness: 4,
           style: 'solid',
         };
 
-        // Dispatch atomic DRAW_WALL command with all information
+        // Dispatch atomic DRAW_EDGE command with all information
         dispatch({
-          type: 'DRAW_WALL',
-          startPoint: tempStartPoint,
-          endPoint: endPoint,
-          wall,
-          startPointExists: state.points.has(tempStartPoint.id),
-          endPointExists: state.points.has(endPoint.id),
+          type: 'DRAW_EDGE',
+          startVertex: tempStartVertex,
+          endVertex: endVertex,
+          edge,
+          startVertexExists: state.vertices.has(tempStartVertex.id),
+          endVertexExists: state.vertices.has(endVertex.id),
         });
-        console.log('Wall drawn with atomic command:', wall);
+        console.log('Edge drawn with atomic command:', edge);
 
-        // Reset for next wall - don't continue chain
-        setTempStartPoint(null);
+        // Reset for next edge - don't continue chain
+        setTempStartVertex(null);
 
         // Clear preview
         if (previewGraphicsRef.current) {
@@ -514,8 +512,9 @@ export const PixiCanvas = () => {
     state.mode,
     state.snapToGrid,
     state.gridSize,
-    state.points,
-    tempStartPoint,
+    state.vertices,
+    state.edges,
+    tempStartVertex,
     mousePos,
     dispatch,
   ]);
@@ -523,7 +522,7 @@ export const PixiCanvas = () => {
   // Cancel drawing on mode change or Escape
   useEffect(() => {
     if (state.mode !== 'draw') {
-      setTempStartPoint(null);
+      setTempStartVertex(null);
       if (previewGraphicsRef.current) {
         previewGraphicsRef.current.clear();
       }
@@ -531,7 +530,7 @@ export const PixiCanvas = () => {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setTempStartPoint(null);
+        setTempStartVertex(null);
         if (previewGraphicsRef.current) {
           previewGraphicsRef.current.clear();
         }

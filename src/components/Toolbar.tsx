@@ -1,9 +1,9 @@
-import type { DrawingMode } from '../types/floorplan';
-import { useFloorplan } from '../context/FloorplanContext';
+import type { DrawingMode } from '../types/spatial';
+import { useSpatial } from '../context/SpatialContext';
 import './Toolbar.css';
 
 export const Toolbar = () => {
-  const { state, dispatch, canUndo, canRedo, getUndoDescription, getRedoDescription } = useFloorplan();
+  const { state, dispatch, canUndo, canRedo, getUndoDescription, getRedoDescription } = useSpatial();
 
   const setMode = (mode: DrawingMode) => {
     dispatch({ type: 'SET_MODE', mode });
@@ -22,7 +22,7 @@ export const Toolbar = () => {
   };
 
   const handleClear = () => {
-    if (confirm('Clear all walls? This action can be undone.')) {
+    if (confirm('Clear all edges? This action can be undone.')) {
       dispatch({ type: 'CLEAR_ALL' });
     }
   };
@@ -34,7 +34,7 @@ export const Toolbar = () => {
         <button
           className={state.mode === 'draw' ? 'active' : ''}
           onClick={() => setMode('draw')}
-          title="Draw walls (D)"
+          title="Draw edges (D)"
         >
           ✏️ Draw
         </button>
@@ -55,7 +55,7 @@ export const Toolbar = () => {
         <button
           className={state.mode === 'erase' ? 'active' : ''}
           onClick={() => setMode('erase')}
-          title="Erase walls (E)"
+          title="Erase edges (E)"
         >
           🗑️ Erase
         </button>
@@ -148,13 +148,13 @@ export const Toolbar = () => {
       <div className="toolbar-section">
         <h3>Info</h3>
         <div className="info-text">
-          Walls: {state.walls.size}
+          Edges: {state.edges.size}
         </div>
         <div className="info-text">
-          Points: {state.points.size}
+          Vertices: {state.vertices.size}
         </div>
         <div className="info-text">
-          Rooms: {state.rooms.size}
+          Surfaces: {state.surfaces.size}
         </div>
         <div className="info-text">
           Mode: {state.mode}

@@ -1,163 +1,163 @@
 import { createContext, useContext, useReducer, useRef, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type {
-  FloorplanState,
-  FloorplanAction,
-  Wall,
-} from '../types/floorplan';
+  SpatialState,
+  SpatialAction,
+  Edge,
+} from '../types/spatial';
 import { generateId } from '../utils/geometry';
-import { FloorplanGraph } from '../utils/floorplanGraph';
+import { SpatialGraph } from '../utils/spatialGraph';
 import {
   CommandHistory,
-  AddPointCommand,
-  DrawWallCommand,
-  AddWallCommand,
-  RemoveWallCommand,
-  SplitWallCommand,
-  AddRoomCommand,
-  UpdateRoomCommand,
-  RemoveRoomCommand,
-  DetectRoomsCommand,
+  AddVertexCommand,
+  DrawEdgeCommand,
+  AddEdgeCommand,
+  RemoveEdgeCommand,
+  SplitEdgeCommand,
+  AddSurfaceCommand,
+  UpdateSurfaceCommand,
+  RemoveSurfaceCommand,
+  DetectSurfacesCommand,
   ClearAllCommand,
   type CommandState,
 } from '../utils/commands';
 
-// Initial state with FloorplanGraph
-const initialGraph = new FloorplanGraph();
+// Initial state with SpatialGraph
+const initialGraph = new SpatialGraph();
 
-const initialState: FloorplanState = {
-  points: initialGraph.getPoints(),
-  walls: initialGraph.getWalls(),
-  rooms: initialGraph.getRooms(),
+const initialState: SpatialState = {
+  vertices: initialGraph.getVertices(),
+  edges: initialGraph.getEdges(),
+  surfaces: initialGraph.getSurfaces(),
   selectedIds: new Set(),
   mode: 'draw',
   gridSize: 10,
   snapToGrid: true,
   measurement: {
     pixelsPerMm: 0.1, // 0.1 pixels = 1mm, so 10px = 100mm (10cm)
-    showMeasurements: true, // Show wall lengths by default
+    showMeasurements: true, // Show edge lengths by default
   },
 };
 
-// Convert FloorplanState to CommandState
-const toCommandState = (state: FloorplanState, graph: FloorplanGraph): CommandState => ({
+// Convert SpatialState to CommandState
+const toCommandState = (state: SpatialState, graph: SpatialGraph): CommandState => ({
   graph,
   selectedIds: state.selectedIds,
 });
 
-// Apply CommandState changes to FloorplanState
+// Apply CommandState changes to SpatialState
 const fromCommandState = (
-  state: FloorplanState,
+  state: SpatialState,
   commandState: CommandState
-): FloorplanState => ({
+): SpatialState => ({
   ...state,
-  points: commandState.graph.getPoints(),
-  walls: commandState.graph.getWalls(),
-  rooms: commandState.graph.getRooms(),
+  vertices: commandState.graph.getVertices(),
+  edges: commandState.graph.getEdges(),
+  surfaces: commandState.graph.getSurfaces(),
   selectedIds: commandState.selectedIds,
 });
 
 // Create a command history instance (will be stored in ref in the provider)
 let commandHistory: CommandHistory;
 // Store the current graph instance
-let currentGraph: FloorplanGraph = new FloorplanGraph();
+let currentGraph: SpatialGraph = new SpatialGraph();
 
 // Reducer
-const floorplanReducer = (
-  state: FloorplanState,
-  action: FloorplanAction
-): FloorplanState => {
+const spatialReducer = (
+  state: SpatialState,
+  action: SpatialAction
+): SpatialState => {
   switch (action.type) {
-    case 'ADD_POINT': {
-      const command = new AddPointCommand(action.point);
+    case 'ADD_VERTEX': {
+      const command = new AddVertexCommand(action.vertex);
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'DRAW_WALL': {
-      const command = new DrawWallCommand(
-        action.startPoint,
-        action.endPoint,
-        action.wall,
-        action.startPointExists,
-        action.endPointExists
+    case 'DRAW_EDGE': {
+      const command = new DrawEdgeCommand(
+        action.startVertex,
+        action.endVertex,
+        action.edge,
+        action.startVertexExists,
+        action.endVertexExists
       );
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'ADD_WALL': {
-      const command = new AddWallCommand(action.wall);
+    case 'ADD_EDGE': {
+      const command = new AddEdgeCommand(action.edge);
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'REMOVE_WALL': {
-      const command = new RemoveWallCommand(action.wallId);
+    case 'REMOVE_EDGE': {
+      const command = new RemoveEdgeCommand(action.edgeId);
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'SPLIT_WALL': {
-      // Get the wall to split
-      const wallToSplit = state.walls.get(action.wallId);
-      if (!wallToSplit) return state;
+    case 'SPLIT_EDGE': {
+      // Get the edge to split
+      const edgeToSplit = state.edges.get(action.edgeId);
+      if (!edgeToSplit) return state;
 
-      // Create two new walls
-      const wall1: Wall = {
+      // Create two new edges
+      const edge1: Edge = {
         id: generateId(),
-        startPointId: wallToSplit.startPointId,
-        endPointId: action.splitPoint.id,
-        thickness: wallToSplit.thickness,
-        style: wallToSplit.style,
+        startVertexId: edgeToSplit.startVertexId,
+        endVertexId: action.splitVertex.id,
+        thickness: edgeToSplit.thickness,
+        style: edgeToSplit.style,
       };
 
-      const wall2: Wall = {
+      const edge2: Edge = {
         id: generateId(),
-        startPointId: action.splitPoint.id,
-        endPointId: wallToSplit.endPointId,
-        thickness: wallToSplit.thickness,
-        style: wallToSplit.style,
+        startVertexId: action.splitVertex.id,
+        endVertexId: edgeToSplit.endVertexId,
+        thickness: edgeToSplit.thickness,
+        style: edgeToSplit.style,
       };
 
-      const command = new SplitWallCommand(
-        action.wallId,
-        action.splitPoint,
-        wall1,
-        wall2
+      const command = new SplitEdgeCommand(
+        action.edgeId,
+        action.splitVertex,
+        edge1,
+        edge2
       );
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'ADD_ROOM': {
-      const command = new AddRoomCommand(action.room);
+    case 'ADD_SURFACE': {
+      const command = new AddSurfaceCommand(action.surface);
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'UPDATE_ROOM': {
-      const command = new UpdateRoomCommand(action.roomId, action.updates);
+    case 'UPDATE_SURFACE': {
+      const command = new UpdateSurfaceCommand(action.surfaceId, action.updates);
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'REMOVE_ROOM': {
-      const command = new RemoveRoomCommand(action.roomId);
+    case 'REMOVE_SURFACE': {
+      const command = new RemoveSurfaceCommand(action.surfaceId);
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
     }
 
-    case 'DETECT_ROOMS': {
-      const command = new DetectRoomsCommand();
+    case 'DETECT_SURFACES': {
+      const command = new DetectSurfacesCommand();
       const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
       currentGraph = newCommandState.graph;
       return fromCommandState(state, newCommandState);
@@ -246,21 +246,21 @@ const floorplanReducer = (
 };
 
 // Context
-interface FloorplanContextType {
-  state: FloorplanState;
-  dispatch: React.Dispatch<FloorplanAction>;
+interface SpatialContextType {
+  state: SpatialState;
+  dispatch: React.Dispatch<SpatialAction>;
   canUndo: boolean;
   canRedo: boolean;
   getUndoDescription: () => string | null;
   getRedoDescription: () => string | null;
 }
 
-const FloorplanContext = createContext<FloorplanContextType | null>(null);
+const SpatialContext = createContext<SpatialContextType | null>(null);
 
 // Provider
-export const FloorplanProvider = ({ children }: { children: ReactNode }) => {
+export const SpatialProvider = ({ children }: { children: ReactNode }) => {
   const historyRef = useRef<CommandHistory>(new CommandHistory());
-  const [state, dispatch] = useReducer(floorplanReducer, initialState);
+  const [state, dispatch] = useReducer(spatialReducer, initialState);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
@@ -274,7 +274,7 @@ export const FloorplanProvider = ({ children }: { children: ReactNode }) => {
     setCanRedo(historyRef.current.canRedo());
   }, [state]);
 
-  const contextValue: FloorplanContextType = {
+  const contextValue: SpatialContextType = {
     state,
     dispatch,
     canUndo,
@@ -284,15 +284,15 @@ export const FloorplanProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <FloorplanContext value={contextValue}>{children}</FloorplanContext>
+    <SpatialContext value={contextValue}>{children}</SpatialContext>
   );
 };
 
 // Hook
-export const useFloorplan = () => {
-  const context = useContext(FloorplanContext);
+export const useSpatial = () => {
+  const context = useContext(SpatialContext);
   if (!context) {
-    throw new Error('useFloorplan must be used within FloorplanProvider');
+    throw new Error('useSpatial must be used within SpatialProvider');
   }
   return context;
 };
