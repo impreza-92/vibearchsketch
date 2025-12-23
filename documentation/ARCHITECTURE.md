@@ -39,26 +39,42 @@ A web-based floorplan drawing application built with React 19, TypeScript, and P
 
 ### 2. State Management
 
-**Decision: React Context + useReducer for drawing state**
+**Decision: React Context + useReducer with Command Pattern + FloorplanGraph**
 
 **Rationale:**
-- Sufficient for initial scope (walls, rooms, basic tools)
-- No additional dependencies
-- Easy to migrate to Zustand later if complexity increases
-- Clear separation between UI state and drawing state
+- React Context provides global state access without prop drilling
+- useReducer centralizes state transitions
+- Command Pattern enables robust undo/redo functionality
+- **FloorplanGraph class provides clean separation between graph data structure and UI**
+- Clear separation between UI state, graph data, and drawing state
+- Type-safe state transitions with TypeScript
+
+**Three-Layer Architecture:**
+1. **Graph Data Layer** - FloorplanGraph class manages points, walls, rooms with graph algorithms
+2. **State Management Layer** - Context + Reducer + Commands handle state transitions and undo/redo
+3. **UI Layer** - React components render the graph data with Pixi.js
+
+See [GRAPH_ARCHITECTURE.md](./GRAPH_ARCHITECTURE.md) for detailed documentation on the graph layer.
 
 **State Structure:**
 ```typescript
 interface FloorplanState {
-  walls: Wall[]
-  rooms: Room[]
-  selectedIds: string[]
-  drawingMode: 'draw' | 'select' | 'pan' | 'erase'
+  points: Map<string, Point>
+  walls: Map<string, Wall>
+  rooms: Map<string, Room>
+  selectedIds: Set<string>
+  mode: 'draw' | 'select' | 'pan' | 'erase'
   gridSize: number
   snapToGrid: boolean
-  history: FloorplanState[] // For undo/redo
+  measurement: MeasurementSettings
 }
 ```
+
+**Command Pattern for Undo/Redo:**
+- Each drawing operation is encapsulated as a Command object
+- Commands implement `execute()` and `undo()` methods
+- CommandHistory manager handles undo/redo stack
+- See [COMMAND_PATTERN.md](COMMAND_PATTERN.md) for detailed documentation
 
 ### 3. Coordinate System
 
@@ -142,7 +158,11 @@ interface Room {
 
 ```
 App
-├── Toolbar (mode selection, tools)
+├── FloorplanProvider (Context - state management + graph)
+│   ├── FloorplanGraph (graph data structure)
+│   ├── CommandHistory (undo/redo with command pattern)
+│   └── Reducer (state transitions)
+├── Toolbar (mode selection, tools, undo/redo buttons)
 ├── PropertiesPanel (selected element properties)
 ├── PixiCanvas (main drawing surface)
 │   ├── Pixi.Application
@@ -153,6 +173,33 @@ App
 │   └── InteractionLayer (mouse events, selection)
 └── StatusBar (coordinates, measurements)
 ```
+
+### Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         UI Layer                            │
+│  - PixiCanvas (rendering with Pixi.js)                     │
+│  - Toolbar (user interactions)                             │
+│  - PropertiesPanel (property editing)                      │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ React Context API
+┌──────────────────────▼──────────────────────────────────────┐
+│                   State Management Layer                    │
+│  - FloorplanContext (state + dispatch)                     │
+│  - CommandHistory (undo/redo stack)                        │
+│  - Command classes (AddWall, RemoveWall, etc.)             │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ FloorplanGraph API
+┌──────────────────────▼──────────────────────────────────────┐
+│                    Graph Data Layer                         │
+│  - FloorplanGraph class                                    │
+│  - Graph algorithms (room detection, validation)           │
+│  - Data storage (Map<id, entity>)                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+See [GRAPH_ARCHITECTURE.md](./GRAPH_ARCHITECTURE.md) for detailed information about the graph layer.
 
 ## Rendering Strategy
 

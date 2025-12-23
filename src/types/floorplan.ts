@@ -39,22 +39,12 @@ export interface FloorplanState {
   gridSize: number;
   snapToGrid: boolean;
   measurement: MeasurementSettings;
-  // For undo/redo
-  history: FloorplanSnapshot[];
-  historyIndex: number;
-}
-
-// Snapshot for undo/redo
-export interface FloorplanSnapshot {
-  points: Map<string, Point>;
-  walls: Map<string, Wall>;
-  rooms: Map<string, Room>;
-  selectedIds: Set<string>;
 }
 
 // Action types for reducer
 export type FloorplanAction =
   | { type: 'ADD_POINT'; point: Point }
+  | { type: 'DRAW_WALL'; startPoint: Point; endPoint: Point; wall: Wall; startPointExists: boolean; endPointExists: boolean }
   | { type: 'ADD_WALL'; wall: Wall }
   | { type: 'REMOVE_WALL'; wallId: string }
   | { type: 'SPLIT_WALL'; wallId: string; splitPoint: Point } // Split wall at point

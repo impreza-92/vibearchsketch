@@ -10,9 +10,12 @@ A modern web-based floorplan drawing application built with React 19, TypeScript
 ## ✨ Features
 
 - **Interactive Wall Drawing** - Click-to-place points to create walls
+- **Smart Edge Splitting** - Click on existing walls to split them and create connections
+- **Automatic Room Detection** - Rooms are automatically detected and labeled
 - **Grid Snapping** - Toggle-able grid snapping for precision
 - **Multiple Drawing Modes** - Draw, Select, Pan, and Erase tools
-- **Undo/Redo** - Full history support for all operations
+- **Robust Undo/Redo** - Command pattern implementation for reliable history
+- **Measurement Display** - Real-time wall length measurements
 - **Responsive Canvas** - Resizes automatically with window
 - **Type-Safe** - Built with TypeScript for reliability
 - **High Performance** - Hardware-accelerated rendering with Pixi.js WebGL
@@ -56,9 +59,11 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 - **Snap to Grid** - Toggle grid snapping on/off
 - **Grid Size** - Adjust grid spacing (5-50 pixels)
-- **Undo** - Undo last action
-- **Redo** - Redo undone action
-- **Clear All** - Remove all walls
+- **Show Lengths** - Toggle wall measurement display
+- **Scale** - Adjust measurement scale (pixels per millimeter)
+- **Undo** (`Ctrl+Z` / `Cmd+Z`) - Undo last action with tooltip showing action description
+- **Redo** (`Ctrl+Y` / `Cmd+Shift+Z`) - Redo undone action with tooltip showing action description
+- **Clear All** - Remove all walls (can be undone)
 
 ## 🏗️ Architecture
 
@@ -81,7 +86,10 @@ src/
 ├── types/              # TypeScript type definitions
 │   └── floorplan.ts
 ├── utils/              # Utility functions
-│   └── geometry.ts     # Math helpers
+│   ├── commands.ts     # Command pattern implementation
+│   ├── geometry.ts     # Math helpers
+│   ├── measurements.ts # Measurement formatting
+│   └── roomDetection.ts # Room detection algorithm
 ├── App.tsx             # Root component
 └── main.tsx           # Entry point
 ```
@@ -93,6 +101,10 @@ Comprehensive documentation available in the `documentation/` folder:
 - [**ARCHITECTURE.md**](./documentation/ARCHITECTURE.md) - System design and technical decisions
 - [**DESIGN_DECISIONS.md**](./documentation/DESIGN_DECISIONS.md) - Rationale behind choices
 - [**IMPLEMENTATION_GUIDE.md**](./documentation/IMPLEMENTATION_GUIDE.md) - Development guide and patterns
+- [**COMMAND_PATTERN.md**](./documentation/COMMAND_PATTERN.md) - Undo/Redo implementation details
+- [**EDGE_SPLITTING.md**](./documentation/EDGE_SPLITTING.md) - Wall splitting algorithm
+- [**ROOM_DETECTION.md**](./documentation/ROOM_DETECTION.md) - Automatic room detection
+- [**MEASUREMENTS.md**](./documentation/MEASUREMENTS.md) - Measurement system
 
 ## 🎯 Roadmap
 

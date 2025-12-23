@@ -97,19 +97,13 @@ const wall2 = { startPointId: splitPoint.id, endPointId: B.id };
 room.wallIds = room.wallIds.map(id => 
   id === originalWallId ? [wall1.id, wall2.id] : [id]
 ).flat();
-
-// Recalculate centroid and area for the updated room
-// IMPORTANT: We update existing rooms, not create new ones
-room.centroid = calculateCentroid(roomPoints);
-room.area = calculatePolygonArea(roomPoints);
 ```
 
-**5. No New Room Detection**
+**5. Re-detect Rooms**
 ```typescript
-// DO NOT call detectRooms() after splitting
-// This would create duplicate rooms instead of updating existing ones
-// Only update properties of affected rooms:
-const updatedRoom = updateRoomProperties(room, points, walls);
+// Room centroids and areas may have changed
+// Re-run cycle detection to update room properties
+detectRooms(points, walls, rooms);
 ```
 
 ## Implementation Details
@@ -162,47 +156,30 @@ case 'SPLIT_WALL': {
 
   // Create two new walls
   const wall1 = { 
-    startPointId: wallToSplit.startPointId,
-    endPointId: action.splitPoint.id,
-    /* ... */
+    /* start → split */ 
   };
   const wall2 = { 
-    startPointId: action.splitPoint.id,
-    endPointId: wallToSplit.endPointId,
-    /* ... */
+    /* split → end */ 
   };
   
   newWalls.set(wall1.id, wall1);
   newWalls.set(wall2.id, wall2);
 
-  // Update rooms that reference the split wall
-  newRooms.forEach((room, roomId) => {
+  // Update rooms
+  newRooms.forEach((room) => {
     if (room.wallIds.includes(action.wallId)) {
-      // Replace old wall ID with two new wall IDs
-      const updatedWallIds = room.wallIds.map(id =>
+      room.wallIds = room.wallIds.map(id =>
         id === action.wallId ? [wall1.id, wall2.id] : [id]
       ).flat();
-
-      const updatedRoom = {
-        ...room,
-        wallIds: updatedWallIds,
-      };
-      
-      // Recalculate centroid and area (does NOT create new rooms)
-      const roomWithNewProps = updateRoomProperties(updatedRoom, newPoints, newWalls);
-      newRooms.set(roomId, roomWithNewProps);
     }
   });
 
+  // Re-detect rooms (centroids may change)
+  const detectedRooms = detectRooms(newPoints, newWalls, newRooms);
+  
   return { ...state, points: newPoints, walls: newWalls, rooms: newRooms };
 }
 ```
-
-**Key Points:**
-- **Updates existing rooms** instead of creating new ones
-- **Recalculates centroids and areas** for affected rooms only
-- **Does NOT call detectRooms()** which would create duplicates
-- **Maintains room identity** (same room ID before and after split)
 
 ### Drawing Logic
 
@@ -369,15 +346,12 @@ Result: 3 segments with proper connectivity
 
 **Problem:** Splitting a wall that's part of a room boundary
 
-**Solution:** Room's `wallIds` array is updated to replace the old wall ID with both new wall IDs. Room properties (centroid and area) are recalculated based on the updated walls. **Crucially, we update the existing room instead of creating a new one**, preventing duplicate rooms.
+**Solution:** Room's `wallIds` array is updated to replace the old wall ID with both new wall IDs. Room detection re-runs to update centroid and area.
 
 ```typescript
 Before: room.wallIds = ['wall1', 'wall2', 'wall3', 'wall4']
 Split wall2 into wall2a and wall2b
 After:  room.wallIds = ['wall1', 'wall2a', 'wall2b', 'wall3', 'wall4']
-
-// Room ID stays the same, only wallIds, centroid, and area change
-// No duplicate rooms created
 ```
 
 ### 5. Undo/Redo with Splits
@@ -553,18 +527,17 @@ describe('Drawing with Edge Splitting', () => {
 
 ### Room Detection After Split
 
-**Symptoms:** Room disappears, duplicates, or shows incorrect boundary after splitting wall
+**Symptoms:** Room disappears or shows incorrect boundary after splitting wall
 
 **Possible causes:**
 1. Room wallIds not updated correctly
-2. New wall IDs not matching room boundary
-3. ~~Cycle detection creating duplicate rooms~~ **FIXED**: No longer calling detectRooms()
+2. Cycle detection not finding the updated cycle
+3. New wall IDs not matching room boundary
 
 **Solutions:**
 - Add console.log to SPLIT_WALL action to verify wallIds update
-- Verify room.wallIds contains both new wall IDs (not old one)
-- Check that updateRoomProperties() correctly recalculates centroid and area
-- **Key fix**: Update existing rooms instead of detecting new ones (prevents duplicates)
+- Check that detectRooms is called after split
+- Verify room.wallIds contains both new wall IDs
 
 ### Performance Degradation
 

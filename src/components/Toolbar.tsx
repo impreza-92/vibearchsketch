@@ -3,7 +3,7 @@ import { useFloorplan } from '../context/FloorplanContext';
 import './Toolbar.css';
 
 export const Toolbar = () => {
-  const { state, dispatch } = useFloorplan();
+  const { state, dispatch, canUndo, canRedo, getUndoDescription, getRedoDescription } = useFloorplan();
 
   const setMode = (mode: DrawingMode) => {
     dispatch({ type: 'SET_MODE', mode });
@@ -22,7 +22,7 @@ export const Toolbar = () => {
   };
 
   const handleClear = () => {
-    if (confirm('Clear all walls? This cannot be undone beyond the history.')) {
+    if (confirm('Clear all walls? This action can be undone.')) {
       dispatch({ type: 'CLEAR_ALL' });
     }
   };
@@ -128,15 +128,15 @@ export const Toolbar = () => {
         <h3>Edit</h3>
         <button
           onClick={handleUndo}
-          disabled={state.historyIndex <= 0}
-          title="Undo (Ctrl+Z)"
+          disabled={!canUndo}
+          title={canUndo ? `Undo: ${getUndoDescription()}` : 'Nothing to undo'}
         >
           ↶ Undo
         </button>
         <button
           onClick={handleRedo}
-          disabled={state.historyIndex >= state.history.length - 1}
-          title="Redo (Ctrl+Y)"
+          disabled={!canRedo}
+          title={canRedo ? `Redo: ${getRedoDescription()}` : 'Nothing to redo'}
         >
           ↷ Redo
         </button>

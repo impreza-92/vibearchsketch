@@ -3,10 +3,14 @@
 ## Project: Floorplan Drawing App
 
 **Date**: December 21, 2025  
-**Status**: ✅ Phase 1 Complete - MVP Ready & Tested  
+**Status**: ✅ Phase 1 Complete - MVP Ready with Command Pattern  
 **Tech Stack**: React 19.2, TypeScript 5.6, Pixi.js 8.x, Vite
 
 **Recent Updates**:
+- ✅ **NEW: Command Pattern implementation for robust undo/redo**
+- ✅ **NEW: All drawing operations encapsulated as commands**
+- ✅ **NEW: Keyboard shortcuts for undo/redo (Ctrl+Z, Ctrl+Y)**
+- ✅ **NEW: Undo/Redo status indicators with action descriptions**
 - ✅ Fixed event handler timing issue with initialization state pattern
 - ✅ Migrated to Pixi.js v8 pointer events (`pointermove`, `pointerdown`)
 - ✅ Drawing tool fully functional with proper event coordination
@@ -15,16 +19,11 @@
 - ✅ Implemented millimeter-based measurement system
 - ✅ Wall length labels displayed in millimeters (whole numbers)
 - ✅ Configurable scale (pixels per millimeter)
-- ✅ **NEW: Room detection system with graph-based cycle detection**
-- ✅ **NEW: Automatic room labeling at centroid**
-- ✅ **NEW: Room area calculation using Shoelace formula**
-- ✅ **NEW: Edge splitting - click on wall to split it into two walls**
-- ✅ Verified all 5 vertex scenarios work correctly without creating duplicates:
-  1. Both vertices new → Creates 2 points + 1 wall
-  2. Start exists, end new → Reuses start, creates end + wall
-  3. Start new, end exists → Creates start, reuses end + wall
-  4. Both exist → Reuses both points, creates only wall
-  5. Click on edge → Splits wall, creates new point, creates 2 new walls
+- ✅ Room detection system with graph-based cycle detection
+- ✅ Automatic room labeling at centroid
+- ✅ Room area calculation using Shoelace formula
+- ✅ Edge splitting - click on wall to split it into two walls
+- ✅ Verified all 5 vertex scenarios work correctly without creating duplicates
 
 ---
 
@@ -45,9 +44,12 @@ A fully functional floorplan drawing application with interactive wall drawing, 
    - Interactive wall drawing with click-to-place (2 clicks = 1 wall)
    - Real-time preview while drawing
    - Smart point reuse - automatically snaps to existing points within 10px
+   - Edge splitting - click on existing wall to split it
    - One wall at a time (no auto-chaining)
    - Grid overlay with configurable spacing
    - Snap-to-grid functionality
+   - **Command Pattern for undo/redo** with 100-command history
+   - All drawing actions are reversible with descriptive tooltips
    - Millimeter-based measurement system with wall length labels
 
 3. **User Interface**
@@ -103,7 +105,9 @@ A fully functional floorplan drawing application with interactive wall drawing, 
 vibearchsketch/
 ├── documentation/
 │   ├── ARCHITECTURE.md           # System architecture & design
+│   ├── COMMAND_PATTERN.md        # Command pattern implementation
 │   ├── DESIGN_DECISIONS.md       # Technical decision rationale
+│   ├── EDGE_SPLITTING.md         # Edge splitting algorithm
 │   ├── IMPLEMENTATION_GUIDE.md   # Development guide & patterns
 │   ├── IMPLEMENTATION_SUMMARY.md # This file - current status
 │   ├── MEASUREMENTS.md           # Measurement system docs
@@ -111,18 +115,19 @@ vibearchsketch/
 │   └── ROOM_DETECTION.md         # Room detection system docs
 ├── src/
 │   ├── components/
-│   │   ├── PixiCanvas.tsx        # Main Pixi.js canvas (480+ lines)
-│   │   ├── Toolbar.tsx           # Tool selector UI (150 lines)
+│   │   ├── PixiCanvas.tsx        # Main Pixi.js canvas (550+ lines)
+│   │   ├── Toolbar.tsx           # Tool selector UI (170 lines)
 │   │   └── Toolbar.css           # Toolbar styles
 │   ├── context/
-│   │   └── FloorplanContext.tsx  # State management (285+ lines)
+│   │   └── FloorplanContext.tsx  # State management (270 lines)
 │   ├── types/
-│   │   └── floorplan.ts          # TypeScript definitions (85 lines)
+│   │   └── floorplan.ts          # TypeScript definitions (70 lines)
 │   ├── utils/
+│   │   ├── commands.ts           # Command pattern (650+ lines)
 │   │   ├── geometry.ts           # Math utilities (70 lines)
 │   │   ├── measurements.ts       # Measurement calculations (75 lines)
 │   │   └── roomDetection.ts      # Room detection algorithms (270+ lines)
-│   ├── App.tsx                   # Root component
+│   ├── App.tsx                   # Root component with keyboard shortcuts
 │   ├── App.css                   # App styles
 │   ├── index.css                 # Global styles
 │   └── main.tsx                  # Entry point
@@ -131,7 +136,7 @@ vibearchsketch/
 └── [standard Vite files]
 ```
 
-**Total Code**: ~1,500+ lines of production-quality TypeScript/React
+**Total Code**: ~2,200+ lines of production-quality TypeScript/React
 
 ---
 
@@ -146,25 +151,39 @@ vibearchsketch/
 - Easier to implement custom tools
 - More documentation and examples available
 
-### 2. React Context + useReducer
-**Choice**: State management with Context API instead of Zustand/Redux
+### 2. React Context + useReducer with Command Pattern
+**Choice**: State management with Context API and Command Pattern instead of Zustand/Redux
 
 **Why**:
 - No additional dependencies
-- Sufficient for current complexity
-- Easy to migrate to Zustand later if needed
-- Clear action-based state updates
+- Command Pattern provides robust undo/redo
+- Clear separation of concerns
+- Each action is encapsulated and reversible
+- Easy to test commands in isolation
+- Efficient memory usage vs full state snapshots
 
-### 3. Click-to-Place Drawing
+### 3. Command Pattern for Undo/Redo
+**Choice**: Implement Command Pattern instead of state snapshots
+
+**Why**:
+- Each command knows how to undo itself
+- More efficient than storing full state copies
+- Provides descriptive action names for UI tooltips
+- Extensible - easy to add new command types
+- Supports composite commands for multi-step operations
+- See [COMMAND_PATTERN.md](COMMAND_PATTERN.md) for details
+
+### 4. Click-to-Place Drawing
 **Choice**: Click points to draw walls (like AutoCAD) vs drag-to-draw
 
 **Why**:
 - More precise than dragging
-- Natural wall chaining
+- Natural wall chaining with smart point reuse
 - Matches professional CAD tools
 - Better for architectural accuracy
+- Supports edge splitting for complex layouts
 
-### 4. Graph-Based Wall Model
+### 5. Graph-Based Wall Model
 **Choice**: Walls as edges between point nodes
 
 **Why**:

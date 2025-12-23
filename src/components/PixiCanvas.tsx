@@ -391,7 +391,8 @@ export const PixiCanvas = () => {
           }
         }
         
-        // Only create and add new point if none exists nearby and not on wall
+        // Only create new point if none exists nearby and not on wall
+        // Note: We don't dispatch ADD_POINT here anymore - it will be part of DRAW_WALL
         if (!startPoint) {
           // Scenarios 1 & 3: Create new start vertex
           startPoint = {
@@ -399,14 +400,13 @@ export const PixiCanvas = () => {
             x,
             y,
           };
-          dispatch({ type: 'ADD_POINT', point: startPoint });
-          console.log('New start point created:', startPoint);
+          console.log('New start point created (not dispatched yet):', startPoint);
         } else if (!state.points.has(startPoint.id)) {
           // Edge case: split point needs to be waited for (it's in the dispatch queue)
           // The split point will be available in the next render
           console.log('Using split point as start:', startPoint);
         } else {
-          // Scenarios 2 & 4: Reuse existing start vertex (no dispatch = no duplicate)
+          // Scenarios 2 & 4: Reuse existing start vertex
           console.log('Reusing existing start point:', startPoint);
         }
         
@@ -450,7 +450,8 @@ export const PixiCanvas = () => {
           }
         }
 
-        // Only create and add new point if none exists nearby and not on wall
+        // Only create new point if none exists nearby and not on wall
+        // Note: We don't dispatch ADD_POINT here anymore - it will be part of DRAW_WALL
         if (!endPoint) {
           // Scenarios 1 & 2: Create new end vertex
           endPoint = {
@@ -458,13 +459,12 @@ export const PixiCanvas = () => {
             x,
             y,
           };
-          dispatch({ type: 'ADD_POINT', point: endPoint });
-          console.log('New end point created:', endPoint);
+          console.log('New end point created (not dispatched yet):', endPoint);
         } else if (!state.points.has(endPoint.id)) {
           // Edge case: split point needs to be waited for (it's in the dispatch queue)
           console.log('Using split point as end:', endPoint);
         } else {
-          // Scenarios 3 & 4: Reuse existing end vertex (no dispatch = no duplicate)
+          // Scenarios 3 & 4: Reuse existing end vertex
           console.log('Reusing existing end point:', endPoint);
         }
 
@@ -477,8 +477,16 @@ export const PixiCanvas = () => {
           style: 'solid',
         };
 
-        dispatch({ type: 'ADD_WALL', wall });
-        console.log('Wall created:', wall);
+        // Dispatch atomic DRAW_WALL command with all information
+        dispatch({
+          type: 'DRAW_WALL',
+          startPoint: tempStartPoint,
+          endPoint: endPoint,
+          wall,
+          startPointExists: state.points.has(tempStartPoint.id),
+          endPointExists: state.points.has(endPoint.id),
+        });
+        console.log('Wall drawn with atomic command:', wall);
 
         // Reset for next wall - don't continue chain
         setTempStartPoint(null);

@@ -1,19 +1,34 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useRef, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type {
   FloorplanState,
   FloorplanAction,
-  FloorplanSnapshot,
   Wall,
 } from '../types/floorplan';
-import { detectRooms, updateRoomProperties } from '../utils/roomDetection';
 import { generateId } from '../utils/geometry';
+import { FloorplanGraph } from '../utils/floorplanGraph';
+import {
+  CommandHistory,
+  AddPointCommand,
+  DrawWallCommand,
+  AddWallCommand,
+  RemoveWallCommand,
+  SplitWallCommand,
+  AddRoomCommand,
+  UpdateRoomCommand,
+  RemoveRoomCommand,
+  DetectRoomsCommand,
+  ClearAllCommand,
+  type CommandState,
+} from '../utils/commands';
 
-// Initial state
+// Initial state with FloorplanGraph
+const initialGraph = new FloorplanGraph();
+
 const initialState: FloorplanState = {
-  points: new Map(),
-  walls: new Map(),
-  rooms: new Map(),
+  points: initialGraph.getPoints(),
+  walls: initialGraph.getWalls(),
+  rooms: initialGraph.getRooms(),
   selectedIds: new Set(),
   mode: 'draw',
   gridSize: 10,
@@ -22,29 +37,30 @@ const initialState: FloorplanState = {
     pixelsPerMm: 0.1, // 0.1 pixels = 1mm, so 10px = 100mm (10cm)
     showMeasurements: true, // Show wall lengths by default
   },
-  history: [],
-  historyIndex: -1,
 };
 
-// Create snapshot for undo/redo
-const createSnapshot = (state: FloorplanState): FloorplanSnapshot => ({
-  points: new Map(state.points),
-  walls: new Map(state.walls),
-  rooms: new Map(state.rooms),
-  selectedIds: new Set(state.selectedIds),
+// Convert FloorplanState to CommandState
+const toCommandState = (state: FloorplanState, graph: FloorplanGraph): CommandState => ({
+  graph,
+  selectedIds: state.selectedIds,
 });
 
-// Restore from snapshot
-const restoreSnapshot = (
+// Apply CommandState changes to FloorplanState
+const fromCommandState = (
   state: FloorplanState,
-  snapshot: FloorplanSnapshot
+  commandState: CommandState
 ): FloorplanState => ({
   ...state,
-  points: new Map(snapshot.points),
-  walls: new Map(snapshot.walls),
-  rooms: new Map(snapshot.rooms),
-  selectedIds: new Set(snapshot.selectedIds),
+  points: commandState.graph.getPoints(),
+  walls: commandState.graph.getWalls(),
+  rooms: commandState.graph.getRooms(),
+  selectedIds: commandState.selectedIds,
 });
+
+// Create a command history instance (will be stored in ref in the provider)
+let commandHistory: CommandHistory;
+// Store the current graph instance
+let currentGraph: FloorplanGraph = new FloorplanGraph();
 
 // Reducer
 const floorplanReducer = (
@@ -53,75 +69,43 @@ const floorplanReducer = (
 ): FloorplanState => {
   switch (action.type) {
     case 'ADD_POINT': {
-      const newPoints = new Map(state.points);
-      newPoints.set(action.point.id, action.point);
+      const command = new AddPointCommand(action.point);
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
+    }
 
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        points: newPoints,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+    case 'DRAW_WALL': {
+      const command = new DrawWallCommand(
+        action.startPoint,
+        action.endPoint,
+        action.wall,
+        action.startPointExists,
+        action.endPointExists
+      );
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'ADD_WALL': {
-      const newWalls = new Map(state.walls);
-      newWalls.set(action.wall.id, action.wall);
-
-      // Check for new rooms after adding the wall
-      const newRooms = new Map(state.rooms);
-      const detectedRooms = detectRooms(state.points, newWalls, state.rooms);
-      detectedRooms.forEach(room => {
-        newRooms.set(room.id, room);
-      });
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        walls: newWalls,
-        rooms: newRooms,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new AddWallCommand(action.wall);
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'REMOVE_WALL': {
-      const newWalls = new Map(state.walls);
-      newWalls.delete(action.wallId);
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        walls: newWalls,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new RemoveWallCommand(action.wallId);
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'SPLIT_WALL': {
       // Get the wall to split
       const wallToSplit = state.walls.get(action.wallId);
       if (!wallToSplit) return state;
-
-      const newPoints = new Map(state.points);
-      const newWalls = new Map(state.walls);
-      const newRooms = new Map(state.rooms);
-
-      // Add the split point
-      newPoints.set(action.splitPoint.id, action.splitPoint);
-
-      // Remove the original wall
-      newWalls.delete(action.wallId);
 
       // Create two new walls
       const wall1: Wall = {
@@ -140,115 +124,43 @@ const floorplanReducer = (
         style: wallToSplit.style,
       };
 
-      newWalls.set(wall1.id, wall1);
-      newWalls.set(wall2.id, wall2);
-
-      // Update rooms that reference the split wall
-      newRooms.forEach((room, roomId) => {
-        if (room.wallIds.includes(action.wallId)) {
-          // Replace old wall ID with two new wall IDs
-          const updatedWallIds = room.wallIds.map((id) =>
-            id === action.wallId ? [wall1.id, wall2.id] : [id]
-          ).flat();
-
-          // Update wall IDs and recalculate centroid and area
-          const updatedRoom = {
-            ...room,
-            wallIds: updatedWallIds,
-          };
-          
-          // Recalculate centroid and area based on new wall configuration
-          const roomWithNewProps = updateRoomProperties(updatedRoom, newPoints, newWalls);
-          newRooms.set(roomId, roomWithNewProps);
-        }
-      });
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        points: newPoints,
-        walls: newWalls,
-        rooms: newRooms,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new SplitWallCommand(
+        action.wallId,
+        action.splitPoint,
+        wall1,
+        wall2
+      );
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'ADD_ROOM': {
-      const newRooms = new Map(state.rooms);
-      newRooms.set(action.room.id, action.room);
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        rooms: newRooms,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new AddRoomCommand(action.room);
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'UPDATE_ROOM': {
-      const room = state.rooms.get(action.roomId);
-      if (!room) return state;
-
-      const newRooms = new Map(state.rooms);
-      newRooms.set(action.roomId, { ...room, ...action.updates });
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        rooms: newRooms,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new UpdateRoomCommand(action.roomId, action.updates);
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'REMOVE_ROOM': {
-      const newRooms = new Map(state.rooms);
-      newRooms.delete(action.roomId);
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        rooms: newRooms,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new RemoveRoomCommand(action.roomId);
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'DETECT_ROOMS': {
-      // Detect all rooms in the current floorplan
-      const detectedRooms = detectRooms(state.points, state.walls, state.rooms);
-      
-      if (detectedRooms.length === 0) return state;
-
-      const newRooms = new Map(state.rooms);
-      detectedRooms.forEach(room => {
-        newRooms.set(room.id, room);
-      });
-
-      // Add to history
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...state,
-        rooms: newRooms,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new DetectRoomsCommand();
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'SELECT': {
@@ -308,35 +220,24 @@ const floorplanReducer = (
     }
 
     case 'UNDO': {
-      if (state.historyIndex <= 0) return state;
-
-      const snapshot = state.history[state.historyIndex - 1];
-      return {
-        ...restoreSnapshot(state, snapshot),
-        historyIndex: state.historyIndex - 1,
-      };
+      const newCommandState = commandHistory.undo(toCommandState(state, currentGraph));
+      if (!newCommandState) return state;
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'REDO': {
-      if (state.historyIndex >= state.history.length - 1) return state;
-
-      const snapshot = state.history[state.historyIndex + 1];
-      return {
-        ...restoreSnapshot(state, snapshot),
-        historyIndex: state.historyIndex + 1,
-      };
+      const newCommandState = commandHistory.redo(toCommandState(state, currentGraph));
+      if (!newCommandState) return state;
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     case 'CLEAR_ALL': {
-      // Add to history before clearing
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push(createSnapshot(state));
-
-      return {
-        ...initialState,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
-      };
+      const command = new ClearAllCommand();
+      const newCommandState = commandHistory.execute(command, toCommandState(state, currentGraph));
+      currentGraph = newCommandState.graph;
+      return fromCommandState(state, newCommandState);
     }
 
     default:
@@ -348,16 +249,42 @@ const floorplanReducer = (
 interface FloorplanContextType {
   state: FloorplanState;
   dispatch: React.Dispatch<FloorplanAction>;
+  canUndo: boolean;
+  canRedo: boolean;
+  getUndoDescription: () => string | null;
+  getRedoDescription: () => string | null;
 }
 
 const FloorplanContext = createContext<FloorplanContextType | null>(null);
 
 // Provider
 export const FloorplanProvider = ({ children }: { children: ReactNode }) => {
+  const historyRef = useRef<CommandHistory>(new CommandHistory());
   const [state, dispatch] = useReducer(floorplanReducer, initialState);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  // Initialize the command history for the reducer
+  // This is a workaround since reducers can't access refs directly
+  commandHistory = historyRef.current;
+
+  // Update can undo/redo status when state changes
+  useEffect(() => {
+    setCanUndo(historyRef.current.canUndo());
+    setCanRedo(historyRef.current.canRedo());
+  }, [state]);
+
+  const contextValue: FloorplanContextType = {
+    state,
+    dispatch,
+    canUndo,
+    canRedo,
+    getUndoDescription: () => historyRef.current.getUndoDescription(),
+    getRedoDescription: () => historyRef.current.getRedoDescription(),
+  };
 
   return (
-    <FloorplanContext value={{ state, dispatch }}>{children}</FloorplanContext>
+    <FloorplanContext value={contextValue}>{children}</FloorplanContext>
   );
 };
 

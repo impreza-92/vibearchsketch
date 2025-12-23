@@ -56,25 +56,32 @@
 
 ### State Management: Context vs Zustand vs Redux
 
-**Decision: React Context + useReducer (with migration path to Zustand)**
+**Decision: React Context + useReducer with Command Pattern**
 
 **Rationale:**
-- **Simplicity**: No additional dependencies for MVP
-- **Sufficient**: Floorplan state is relatively simple (walls, rooms, selected items)
+- **Simplicity**: No additional dependencies for core state management
 - **Type Safety**: Works naturally with TypeScript
-- **Migration Path**: Easy to swap to Zustand if needed (similar API)
+- **Robust Undo/Redo**: Command Pattern provides reliable state history
+- **Performance**: Commands store minimal state vs full snapshots
+- **Testability**: Commands can be tested in isolation
+
+**Command Pattern Implementation:**
+- Each drawing operation is a Command object
+- Commands encapsulate both execution and undo logic
+- CommandHistory manages the undo/redo stack
+- See [COMMAND_PATTERN.md](COMMAND_PATTERN.md) for details
 
 **When to Migrate to Zustand:**
-- State updates become performance bottleneck
-- Need time-travel debugging beyond undo/redo
-- Multiple independent state slices needed
+- Need multiple independent state slices
+- Want time-travel debugging beyond undo/redo
 - Team wants devtools integration
+- Performance optimization for large state trees
 
 **Why Not Redux:**
 - Overkill for this use case
 - More boilerplate
 - Larger bundle size
-- Context + useReducer achieves same goals with less code
+- Context + useReducer + Command Pattern achieves same goals with less code
 
 ## UX Decisions
 
